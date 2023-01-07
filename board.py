@@ -15,7 +15,7 @@ PIECE_SYMBOLS = {
     ".": "."
 }
 
-board = np.array([
+chessboard = np.array([
     ("r", "n", "b", "q", "k", "b", "n", "r"),
     ("p", "p", "p", "p", "p", "p", "p", "p"),
     (".", ".", ".", ".", ".", ".", ".", "."), 
@@ -26,8 +26,8 @@ board = np.array([
     ("R", "N", "B", "Q", "K", "B", "N", "R")
 ])
 
-def print_board(board):
-    for i, row in enumerate(board):
+def print_chessboard(chessboard):
+    for i, row in enumerate(chessboard):
         print(BOARDSIZE - i, end=' ')
         for square in row:
             print(PIECE_SYMBOLS[square], end='  ')
@@ -37,4 +37,5 @@ def print_board(board):
     for letter in FILE_LETTERS:
         print(letter, end='  ')
 
-print_board(board)
+if __name__ == '__main__':
+    print_chessboard(chessboard)
