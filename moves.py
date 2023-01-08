@@ -72,3 +72,33 @@ def move_vector(start_vector, end_vector):
 
     return vector
 
+def contains_own_piece(square_vector, whites_move):
+    """A function that checks if a square contains the current players piece"""
+    
+    piece = board.chessboard([square_vector])
+    
+    if whites_move: 
+        # Check if piece is upper case (a white piece)
+        return piece == piece.upper()
+    else:
+        # Check if piece is lower case (a black piece)
+        return piece == piece.lower()
+        
+def is_blank_square(square_vector):
+    """A function that checks if a square is blank"""
+
+    if board.chessboard[square_vector] == board.BLANK_SQUARE:
+        return True
+
+    return False
+
+def is_end_square_valid(end_vector, whites_move):
+    """A function that checks if the end square is blank or contains an enemy piece"""
+
+    # Check if end square is blank
+    if is_blank_square(end_vector):
+        return True
+
+    # Check if end square has enemy piece
+    return not contains_own_piece(end_vector, whites_move)
+
