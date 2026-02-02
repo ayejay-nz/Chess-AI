@@ -36,3 +36,22 @@ def init_bitboards(white_it_bottom=True):
         bitboards_bottom.extend([e_file_bit, d_file_bit])
         bitboards_top.extend([rank_to_row(e_file_bit, 8), rank_to_row(d_file_bit, 8)])
         return (bitboards_top, bitboards_bottom)
+
+def user_wants_white():
+    """
+    Get what colour the user wants to play as
+    """
+
+    white_options = ['white', 'w']
+    black_options = ['black', 'b']
+
+    while True:
+        response = input('Do you want to play as white or black? \n').lower()
+        if response in white_options:
+            return True
+        elif response in black_options:
+            return False
+
+def main():
+    is_white = user_wants_white()
+    white_bitboards, black_bitboards = init_bitboards(is_white)
