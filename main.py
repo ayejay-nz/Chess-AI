@@ -52,6 +52,43 @@ def user_wants_white():
         elif response in black_options:
             return False
 
+def output_boardstate(white_bbs, black_bbs):
+    """
+    Output the current boardstate from the white/black bitboards
+    """
+
+    white_piece_order = ['♙', '♖', '♘', '♗', '♕', '♔']
+    black_piece_order = ['♟', '♜', '♞', '♝', '♛', '♚']
+    board = ['.'] * 64
+
+    for idx, bb in enumerate(white_bbs):
+        piece = white_piece_order[idx]
+        while bb:
+            lsb = bb & -bb
+            square = 64 - lsb.bit_length()
+            board[square] = piece
+            bb ^= lsb
+
+    for idx, bb in enumerate(black_bbs):
+        piece = black_piece_order[idx]
+        while bb:
+            lsb = bb & -bb
+            square = 64 - lsb.bit_length()
+            board[square] = piece
+            bb ^= lsb
+
+    lines = []
+    for rank in range(7, -1, -1):
+        row = board[rank * 8: (rank + 1) * 8]
+        lines.append(str(rank + 1) + ' ' + ' '.join(row))
+    lines.append('  a b c d e f g h')
+
+    print('\n'.join(lines))
+
 def main():
     is_white = user_wants_white()
-    white_bitboards, black_bitboards = init_bitboards(is_white)
+    white_bbs, black_bbs = init_bitboards(is_white)
+    output_boardstate(white_bbs, black_bbs)
+
+if __name__ == '__main__':
+    main()
