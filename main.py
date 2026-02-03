@@ -83,7 +83,10 @@ def output_boardstate(white_bbs, black_bbs, is_white):
     lines = []
     for rank in range(8):
         row = board[rank * 8: (rank + 1) * 8]
-        lines.append(str(rank + 1) + ' ' + ' '.join(row))
+        
+        if is_white: lines.append(str(8 - rank) + ' ' + ' '.join(row))
+        else: lines.append(str(rank + 1) + ' ' + ' '.join(row))
+        
     if is_white: lines.append('  a b c d e f g h')
     else: lines.append('  h g f e d c b a')
 
