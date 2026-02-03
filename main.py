@@ -1,6 +1,5 @@
 from moves import find_legal_moves
-
-is_whites_move = True
+from gamestate import is_whites_move, castling_rights
 
 def rank_to_row(raw_row, rank):
     """

@@ -1,3 +1,5 @@
+from gamestate import WK, WQ, BK, BQ
+
 def is_occupied_index(bitboards, square_index):
     """
     Check if a square is occupied by a piece given a set of bitboards
