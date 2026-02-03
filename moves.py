@@ -141,6 +141,31 @@ def find_rook_moves(player_bbs, opposition_bbs):
 
     return moves
 
+def find_bishop_moves(player_bbs, opposition_bbs):
+    """
+    Find possible bishop moves
+    """
+
+    bishop_bb = player_bbs[3]
+
+    moves = []
+
+    while bishop_bb:
+        lsb = bishop_bb & -bishop_bb
+        square = lsb.bit_length() - 1
+        rank = get_rank(square)
+        file = get_file(square)
+
+        # Check all 4 bishop directions
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, 1))
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, -1))
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, 1))
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, -1))
+
+        bishop_bb ^= lsb
+
+    return moves
+
 def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool):
     """
     Find all legal moves for the given player
@@ -155,5 +180,6 @@ def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool)
     moves = [
         find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move), 
         find_rook_moves(player_bbs, opposition_bbs), 
+        find_bishop_moves(player_bbs, opposition_bbs), 
     ]
 
