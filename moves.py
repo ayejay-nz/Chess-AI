@@ -17,6 +17,39 @@ def get_rank(square):
 
     return square // 8
 
+def get_file(square):
+    """
+    Get a squares file (0-7) from its index
+    """
+
+    return square % 8
+
+def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
+    """
+    Walk one direction until blocked or reached edge of the board and return all valid moves
+    """
+
+    moves = []
+
+    move_rank, move_file = rank + dr, file + df
+    while 0 <= move_rank <= 7 and 0 <= move_file <= 7:
+        move_square = 8 * move_rank + move_file
+
+        # Blocked by own piece
+        if is_occupied_index(player_bbs, move_square):
+            break
+
+        moves.append((square, move_square))
+
+        # Capturing so stop ray
+        if is_occupied_index(opposition_bbs, move_square):
+            break
+
+        move_rank += dr
+        move_file += df
+
+    return moves
+
 def find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move):
     """
     Find possible pawn moves
@@ -83,6 +116,31 @@ def find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move):
 
     return moves
 
+def find_rook_moves(player_bbs, opposition_bbs):
+    """
+    Find possible rook moves
+    """
+
+    rook_bb = player_bbs[1]
+
+    moves = []
+
+    while rook_bb:
+        lsb = rook_bb & -rook_bb
+        square = lsb.bit_length() - 1
+        rank = get_rank(square)
+        file = get_file(square)
+
+        # Check all 4 rook directions: right, left, up, down
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, 0))
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, 0))
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 0, 1))
+        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 0, -1))
+
+        rook_bb ^= lsb
+
+    return moves
+
 def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool):
     """
     Find all legal moves for the given player
@@ -96,5 +154,6 @@ def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool)
     # Store pseudo-legal moves for each piece type as (start square, end square)
     moves = [
         find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move), 
+        find_rook_moves(player_bbs, opposition_bbs), 
     ]
 
