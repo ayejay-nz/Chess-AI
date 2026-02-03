@@ -177,7 +177,7 @@ def find_queen_moves(player_bbs, opposition_bbs):
 
     while queen_bb:
         lsb = queen_bb & -queen_bb
-        square = lsb.bit_length()
+        square = lsb.bit_length() - 1
         rank = get_rank(square)
         file = get_file(square)
 
