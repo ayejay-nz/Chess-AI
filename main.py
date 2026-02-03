@@ -132,7 +132,8 @@ def main():
     white_bbs, black_bbs = init_bitboards(is_white)
     output_boardstate(white_bbs, black_bbs, is_white)
 
-    moves = find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move, castling_rights)
+    capturing_moves, pawn_moves = find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move, castling_rights)
+    all_moves = capturing_moves + pawn_moves
 
     user_move = get_move(is_white)
 

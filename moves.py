@@ -103,6 +103,7 @@ def find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move):
     pawn_capture_moves = [7, 9] if bottom_players_move else [-7, -9]
 
     moves = []
+    capture_moves = []
 
     while pawn_bb:
         lsb = pawn_bb & -pawn_bb
@@ -121,11 +122,11 @@ def find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move):
 
             # Check if square has enemy piece which can be captured
             if is_occupied_index(opposition_bbs, move_square): 
-                moves.append((square, move_square))
+                capture_moves.append((square, move_square))
 
         pawn_bb ^= lsb
 
-    return moves
+    return (capture_moves, moves)
 
 def find_rook_moves(player_bbs, opposition_bbs):
     """
@@ -321,6 +322,8 @@ def find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights):
 def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool, castling_rights):
     """
     Find all legal moves for the given player
+
+    Returns a list of all capturing moves and a list of non-capturing moves (i.e. forward pawn moves)
     """
 
     player_bbs = white_bbs if is_whites_move else black_bbs
@@ -329,11 +332,12 @@ def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool,
     bottom_players_move = not (is_white ^ is_whites_move)
 
     # Store pseudo-legal moves for each piece type as (start square, end square)
-    moves = find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move) + \
+    pawn_capturing_moves, pawn_moves = find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move)
+    capturing_moves = pawn_capturing_moves + \
         find_rook_moves(player_bbs, opposition_bbs) + \
         find_knight_moves(player_bbs) + \
         find_bishop_moves(player_bbs, opposition_bbs) + \
         find_queen_moves(player_bbs, opposition_bbs) + \
         find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights)
     
-    return moves
+    return capturing_moves, pawn_moves
