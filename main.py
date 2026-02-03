@@ -1,3 +1,7 @@
+from moves import find_legal_moves
+
+is_whites_move = True
+
 def rank_to_row(raw_row, rank):
     """
     Convert a singular row into a row given its rank 
@@ -89,6 +93,8 @@ def main():
     is_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards(is_white)
     output_boardstate(white_bbs, black_bbs)
+
+    find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move)
 
 if __name__ == '__main__':
     main()
