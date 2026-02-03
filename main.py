@@ -1,3 +1,5 @@
+import re
+
 from moves import find_legal_moves
 from gamestate import is_whites_move, castling_rights
 
@@ -92,12 +94,47 @@ def output_boardstate(white_bbs, black_bbs, is_white):
 
     print('\n'.join(lines))
 
+def square_to_index(square, is_white):
+    """
+    Convert a square to its board index 
+    """
+
+    file = square[0]
+    rank = int(square[1])
+
+    index = ord(file) - 97 + (rank - 1) * 8
+    
+    if is_white: return index
+    else: return 63 - index
+
+
+def get_move(is_white):
+    """
+    Get users move and convert it to index format
+
+    e.g. Nc3 = b1c3 -> (1, 18)
+    """
+
+    while True:
+        move = input('Please enter your move: ').lower()
+        
+        if re.match('[a-h][1-8][a-h][1-8]', move):
+            break
+
+    start_square = move[:2]
+    end_square = move[2:]
+
+    return (square_to_index(start_square, is_white), square_to_index(end_square, is_white))
+
+
 def main():
     is_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards(is_white)
     output_boardstate(white_bbs, black_bbs, is_white)
 
-    find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move, castling_rights)
+    moves = find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move, castling_rights)
+
+    user_move = get_move(is_white)
 
 if __name__ == '__main__':
     main()
