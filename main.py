@@ -94,7 +94,7 @@ def main():
     white_bbs, black_bbs = init_bitboards(is_white)
     output_boardstate(white_bbs, black_bbs, is_white)
 
-    find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move)
+    find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move, castling_rights)
 
 if __name__ == '__main__':
     main()

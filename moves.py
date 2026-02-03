@@ -52,6 +52,15 @@ def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
 
     return moves
 
+def get_castling_rights(castling_rights):
+    """
+    Returns a tuple of booleans of the current castling rights
+
+    (black queenside, black kingside, white queenside, white kingside)
+    """
+    
+    return (castling_rights & BQ == BQ, castling_rights & BK == BK, castling_rights & WQ == WQ, castling_rights & WK == WK)
+
 def find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move):
     """
     Find possible pawn moves
@@ -196,7 +205,81 @@ def find_queen_moves(player_bbs, opposition_bbs):
         queen_bb ^= lsb
 
     return moves
-def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool):
+
+def find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights):
+    """
+    Find possible king moves
+    """
+
+    moves = []
+
+    king_moves = [(-1, -1), (-1, 0), (-1, 1),
+                  (0, -1), (0, 1),
+                  (1, -1), (1, 0), (1, 1)]
+
+    king_bb = player_bbs[5]
+    if king_bb == 0: return moves
+
+    square = king_bb.bit_length() - 1
+    rank = get_rank(square)
+    file = get_file(square)
+
+    kingside_free, queenside_free = False, False
+    for dr, df in king_moves:
+        move_rank = rank + dr
+        move_file = file + df
+
+        if 0 <= move_rank <= 7 and 0 <= move_file <= 7:
+            move_square = 8 * move_rank + move_file
+
+            # Blocked by friendly piece
+            if is_occupied_index(player_bbs, move_square):
+                continue
+
+            moves.append((square, move_square))
+
+            # If a left/right move is a capturing move, i.e. you cannot castle in that direction
+            if dr != 0 or is_occupied_index(opposition_bbs, move_square):
+                continue
+            
+            if df == 1:
+                if is_white: kingside_free = True
+                else: queenside_free = True
+            elif df == -1:
+                if is_white: queenside_free = True
+                else: kingside_free = True
+        else:
+            continue
+
+    BQ_rights, BK_rights, WQ_rights, WK_rights = get_castling_rights(castling_rights)
+
+    if is_white:
+        k_step, q_step = 2, -2
+        k_rights, q_rights = WK_rights, WQ_rights
+        q_extra = -1
+    else:
+        k_step, q_step = -2, 2
+        k_rights, q_rights = BK_rights, BQ_rights
+        q_extra = 1
+
+    # check kingside castling
+    if kingside_free and k_rights:
+        move_square = square + k_step
+        if not is_occupied_index(player_bbs + opposition_bbs, move_square):
+            moves.append((square, move_square))
+
+    # check queenside castling
+    if queenside_free and q_rights:
+        move_square = square + q_step
+        if (
+            not is_occupied_index(player_bbs + opposition_bbs, move_square)
+            and not is_occupied_index(player_bbs + opposition_bbs, move_square + q_extra)
+        ):
+            moves.append((square, move_square))
+
+    return moves
+
+def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool, castling_rights):
     """
     Find all legal moves for the given player
     """
@@ -212,5 +295,6 @@ def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool)
         find_rook_moves(player_bbs, opposition_bbs), 
         find_bishop_moves(player_bbs, opposition_bbs), 
         find_queen_moves(player_bbs, opposition_bbs), 
+        find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights)
     ]
 
