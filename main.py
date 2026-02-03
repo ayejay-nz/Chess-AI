@@ -24,8 +24,8 @@ def init_bitboards(white_is_bottom=True):
     rooks_row = 0b10000001
     knights_row = 0b01000010
     bishops_row = 0b00100100
-    d_file_bit = 0b00010000
-    e_file_bit = 0b00001000
+    d_file_bit = 0b00001000
+    e_file_bit = 0b00010000
 
     # Create bitboards for bottom player excluding king/queen
     bitboards_bottom = [rank_to_row(pawns_row, 2), rooks_row, knights_row, bishops_row]
@@ -69,7 +69,7 @@ def output_boardstate(white_bbs, black_bbs):
         piece = white_piece_order[idx]
         while bb:
             lsb = bb & -bb
-            square = 64 - lsb.bit_length()
+            square = lsb.bit_length() - 1
             board[square] = piece
             bb ^= lsb
 
@@ -77,12 +77,12 @@ def output_boardstate(white_bbs, black_bbs):
         piece = black_piece_order[idx]
         while bb:
             lsb = bb & -bb
-            square = 64 - lsb.bit_length()
+            square = lsb.bit_length() - 1
             board[square] = piece
             bb ^= lsb
 
     lines = []
-    for rank in range(7, -1, -1):
+    for rank in range(8):
         row = board[rank * 8: (rank + 1) * 8]
         lines.append(str(rank + 1) + ' ' + ' '.join(row))
     lines.append('  a b c d e f g h')
