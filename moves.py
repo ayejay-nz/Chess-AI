@@ -152,6 +152,45 @@ def find_rook_moves(player_bbs, opposition_bbs):
 
     return moves
 
+def find_knight_moves(player_bbs):
+    """
+    Find possible knight moves
+    """
+
+    knight_bb = player_bbs[2]
+
+    knight_moves = [(2, -1), (2, 1), (1, 2), (1, -2),
+                    (-2, 1), (-2, -1), (-1, -2), (-1, 2)]
+
+    moves = []
+
+    while knight_bb:
+        lsb = knight_bb & -knight_bb
+        square = lsb.bit_length() - 1
+        rank = get_rank(square)
+        file = get_file(square)
+
+        for dr, df in knight_moves:
+            move_rank = rank + dr
+            if move_rank > 7 or move_rank < 0:
+                continue
+
+            move_file = file + df
+            if move_file > 7 or move_file < 0:
+                continue
+
+            move_square = 8 * move_rank + move_file
+
+            # Blocked by own piece
+            if is_occupied_index(player_bbs, move_square):
+                continue
+
+            moves.append((square, move_square))
+
+        knight_bb ^= lsb
+
+    return moves
+
 def find_bishop_moves(player_bbs, opposition_bbs):
     """
     Find possible bishop moves
@@ -293,8 +332,10 @@ def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool,
     moves = [
         find_pawn_moves(player_bbs, opposition_bbs, bottom_players_move), 
         find_rook_moves(player_bbs, opposition_bbs), 
+        find_knight_moves(player_bbs), 
         find_bishop_moves(player_bbs, opposition_bbs), 
         find_queen_moves(player_bbs, opposition_bbs), 
         find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights)
     ]
 
+    return moves
