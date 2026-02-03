@@ -56,7 +56,7 @@ def user_wants_white():
         elif response in black_options:
             return False
 
-def output_boardstate(white_bbs, black_bbs):
+def output_boardstate(white_bbs, black_bbs, is_white):
     """
     Output the current boardstate from the white/black bitboards
     """
@@ -85,14 +85,15 @@ def output_boardstate(white_bbs, black_bbs):
     for rank in range(8):
         row = board[rank * 8: (rank + 1) * 8]
         lines.append(str(rank + 1) + ' ' + ' '.join(row))
-    lines.append('  a b c d e f g h')
+    if is_white: lines.append('  a b c d e f g h')
+    else: lines.append('  h g f e d c b a')
 
     print('\n'.join(lines))
 
 def main():
     is_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards(is_white)
-    output_boardstate(white_bbs, black_bbs)
+    output_boardstate(white_bbs, black_bbs, is_white)
 
     find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move)
 
