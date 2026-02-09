@@ -325,15 +325,73 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
 
     return moves, castling_moves
 
-def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
+def in_check(king_square, opposition_moves):
     """
-    Find all legal moves for the given player
-
-    Returns a list of all capturing moves and a list of non-capturing moves (i.e. forward pawn moves)
+    Check if the opponents pieces can attack the king
     """
 
-    player_bbs = white_bbs if is_whites_move else black_bbs
-    opposition_bbs = black_bbs if is_whites_move else white_bbs
+    return any(sq == king_square for _, sq in opposition_moves)
+
+def filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites_move, castling_rights):
+    """
+    Convert a list of all pseudo-legal moves into legal moves, i.e. remove all moves that result in a check
+    """
+
+    legal_moves = []
+
+    def filter_moves(moves):
+        """
+        Find all moves from a set of moves which result in the king not being in check
+        """
+
+        for move in moves:
+            new_player_bbs, new_opposition_bbs = apply_move(player_bbs, opposition_bbs, move)
+
+            # See if an opponents piece can attack the king
+            king_bb = new_player_bbs[5]
+            king_square = king_bb.bit_length() - 1
+
+            o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(new_opposition_bbs, new_player_bbs, not is_whites_move, castling_rights)
+
+            # Move results in check
+            if not in_check(king_square, o_piece_capturing_moves + o_king_moves):
+                legal_moves.append(move)
+
+    piece_moves, king_moves, castling_moves, pawn_moves = pseudo_legal_moves
+
+    # Find safe king moves
+    filter_moves(king_moves)
+
+    # See if the king would be castling through check
+    kingside_clear = True if (4, 5) in legal_moves or (60, 61) in legal_moves else False
+    queenside_clear = True if (4, 3) in legal_moves or (60, 59) in legal_moves else False
+
+    # Find piece moves leaving king safe
+    filter_moves(piece_moves + pawn_moves)
+
+    if len(castling_moves) == 0:
+        return legal_moves
+
+    # Cannot castle out of check
+    king_bb = player_bbs[5]
+    king_square = king_bb.bit_length() - 1
+    o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(opposition_bbs, player_bbs, not is_whites_move, castling_rights)
+
+    if in_check(king_square, o_piece_capturing_moves):
+        return legal_moves
+    
+    for move in castling_moves:
+        start_square = move[0]
+        end_square = move[1]
+        move_delta = end_square - start_square
+
+        # King doesn't pass through check and doesn't land in check
+        if move_delta == 2 and kingside_clear and not in_check(end_square, o_piece_capturing_moves + o_king_moves):
+            legal_moves.append(move)
+        elif move_delta == -2 and queenside_clear and not in_check(end_square, o_piece_capturing_moves + o_king_moves):
+            legal_moves.append(move)
+
+    return legal_moves
 
 def apply_move(player_bbs, opposition_bbs, move):
     """
@@ -407,3 +465,6 @@ def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
 
     pseudo_legal_moves = find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     
+    legal_moves = filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites_move, castling_rights)
+
+    return legal_moves
