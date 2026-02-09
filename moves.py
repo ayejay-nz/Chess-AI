@@ -337,12 +337,11 @@ def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
 
     # Store pseudo-legal moves for each piece type as (start square, end square)
     pawn_capturing_moves, pawn_moves = find_pawn_moves(player_bbs, opposition_bbs, is_whites_move)
-    king_capturing_moves, castling_moves = find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
-    capturing_moves = pawn_capturing_moves + \
+    king_moves, castling_moves = find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
+    piece_capturing_moves = pawn_capturing_moves + \
         find_rook_moves(player_bbs, opposition_bbs) + \
         find_knight_moves(player_bbs) + \
         find_bishop_moves(player_bbs, opposition_bbs) + \
-        find_queen_moves(player_bbs, opposition_bbs) + \
-        king_capturing_moves
+        find_queen_moves(player_bbs, opposition_bbs)
 
-    return capturing_moves, castling_moves, pawn_moves
+    return piece_capturing_moves, king_moves, castling_moves, pawn_moves
