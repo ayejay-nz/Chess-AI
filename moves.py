@@ -246,7 +246,7 @@ def find_queen_moves(player_bbs, opposition_bbs):
 
     return moves
 
-def find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights):
+def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights):
     """
     Find possible king moves
     """
@@ -282,25 +282,20 @@ def find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights):
             if dr != 0 or is_occupied_index(opposition_bbs, move_square):
                 continue
             
-            if df == 1:
-                if is_white: kingside_free = True
-                else: queenside_free = True
-            elif df == -1:
-                if is_white: queenside_free = True
-                else: kingside_free = True
+            # Square to the left (kingside) or right (queenside) of king is free
+            if df == 1: kingside_free = True
+            else: queenside_free = True
         else:
             continue
 
     BQ_rights, BK_rights, WQ_rights, WK_rights = get_castling_rights(castling_rights)
 
-    if is_white:
-        k_step, q_step = 2, -2
+    k_step, q_step = 2, -2
+    q_extra = - 1
+    if is_whites_move:
         k_rights, q_rights = WK_rights, WQ_rights
-        q_extra = -1
     else:
-        k_step, q_step = -2, 2
         k_rights, q_rights = BK_rights, BQ_rights
-        q_extra = 1
 
     # check kingside castling
     if kingside_free and k_rights:
@@ -319,7 +314,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights):
 
     return moves
 
-def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool, castling_rights):
+def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
     """
     Find all legal moves for the given player
 
@@ -336,6 +331,6 @@ def find_legal_moves(white_bbs, black_bbs, is_white: bool, is_whites_move: bool,
         find_knight_moves(player_bbs) + \
         find_bishop_moves(player_bbs, opposition_bbs) + \
         find_queen_moves(player_bbs, opposition_bbs) + \
-        find_king_moves(player_bbs, opposition_bbs, is_white, castling_rights)
-    
+        find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
+
     return capturing_moves, pawn_moves
