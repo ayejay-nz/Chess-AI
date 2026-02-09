@@ -1,3 +1,5 @@
+PLAYER_ON_BOTTOM = True
+
 is_whites_move = True
 is_playing_white = True
 
