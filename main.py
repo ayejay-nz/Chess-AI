@@ -1,7 +1,7 @@
 import re
 
 from moves import find_legal_moves
-from gamestate import is_whites_move, castling_rights
+from gamestate import is_whites_move, castling_rights, output_boardstate
 
 def rank_to_row(raw_row, rank):
     """
@@ -57,43 +57,6 @@ def user_wants_white():
         elif response in black_options:
             return False
 
-def output_boardstate(white_bbs, black_bbs, is_white):
-    """
-    Output the current boardstate from the white/black bitboards
-    """
-
-    black_piece_order = ['♙', '♖', '♘', '♗', '♕', '♔']
-    white_piece_order = ['♟', '♜', '♞', '♝', '♛', '♚']
-    board = ['.'] * 64
-
-    for idx, bb in enumerate(white_bbs):
-        piece = white_piece_order[idx]
-        while bb:
-            lsb = bb & -bb
-            square = lsb.bit_length() - 1
-            board[square] = piece
-            bb ^= lsb
-
-    for idx, bb in enumerate(black_bbs):
-        piece = black_piece_order[idx]
-        while bb:
-            lsb = bb & -bb
-            square = lsb.bit_length() - 1
-            board[square] = piece
-            bb ^= lsb
-
-    lines = []
-    for rank in range(7, -1, -1):
-        row = board[rank * 8: (rank + 1) * 8]
-        
-        if is_white: lines.append(str(rank + 1) + ' ' + ' '.join(row))
-        else: lines.append(str(8 - rank) + ' ' + ' '.join(row))
-        
-    if is_white: lines.append('  a b c d e f g h')
-    else: lines.append('  h g f e d c b a')
-
-    print('\n'.join(lines))
-
 def square_to_index(square, is_white):
     """
     Convert a square to its board index 
@@ -106,7 +69,6 @@ def square_to_index(square, is_white):
     
     if is_white: return index
     else: return 63 - index
-
 
 def get_move(is_white):
     """
@@ -125,7 +87,6 @@ def get_move(is_white):
     end_square = move[2:]
 
     return (square_to_index(start_square, is_white), square_to_index(end_square, is_white))
-
 
 def main():
     is_white = user_wants_white()
