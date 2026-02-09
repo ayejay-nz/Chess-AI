@@ -334,6 +334,49 @@ def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
 
     player_bbs = white_bbs if is_whites_move else black_bbs
     opposition_bbs = black_bbs if is_whites_move else white_bbs
+
+def apply_move(player_bbs, opposition_bbs, move):
+    """
+    Apply a users move to their bitboard, and return the modified bitboards
+    """
+
+    start_idx, end_idx = move
+    move_delta = end_idx - start_idx
+    start_square, end_square = 2**start_idx, 2**end_idx
+
+    new_player = player_bbs[:]
+    new_opposition = opposition_bbs[:]
+
+    for idx, bb in enumerate(new_player):
+        # Find the bitboard containing the piece which is moved
+        if bb & start_square:
+            # Castling moves both the king and a rook
+            if idx == 5 and move_delta in (2, -2):
+                if move_delta == 2: # Kingside
+                    rook_idx = start_idx + 3
+                    rook_end_idx = rook_idx - 2
+                else: # Queenside
+                    rook_idx = start_idx - 4
+                    rook_end_idx = rook_idx + 3
+
+                rook_end_square = 2**rook_end_idx
+                rook_square = 2**rook_idx
+
+                new_player[1] = new_player[1] ^ rook_square # Remove the castled rook
+                new_player[1] = new_player[1] ^ rook_end_square # Place the castled rook
+
+            new_player[idx] = new_player[idx] ^ start_square # Remove the moved piece 
+            new_player[idx] = new_player[idx] ^ end_square # Place the moved piece
+            break
+
+    for idx, bb in enumerate(new_opposition):
+        # Remove captured piece
+        if bb & end_square:
+            new_opposition[idx] = new_opposition[idx] ^ end_square
+            break
+
+    return new_player, new_opposition
+
 def find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights):
     """
     Find all pseudo-legal moves for the given player
