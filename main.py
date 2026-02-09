@@ -1,7 +1,7 @@
 import re
 
 from moves import find_legal_moves
-from gamestate import is_whites_move, castling_rights, output_boardstate
+from gamestate import is_whites_move, is_playing_white, castling_rights, output_boardstate
 
 def rank_to_row(raw_row, rank):
     """
@@ -82,14 +82,15 @@ def get_move(is_white):
     return (square_to_index(start_square, is_white), square_to_index(end_square, is_white))
 
 def main():
-    is_white = user_wants_white()
+    global is_playing_white
+    is_playing_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards()
-    output_boardstate(white_bbs, black_bbs, is_white)
+    output_boardstate(white_bbs, black_bbs, is_playing_white)
 
-    capturing_moves, pawn_moves = find_legal_moves(white_bbs, black_bbs, is_white, is_whites_move, castling_rights)
+    capturing_moves, pawn_moves = find_legal_moves(white_bbs, black_bbs, is_playing_white, is_whites_move, castling_rights)
     all_moves = capturing_moves + pawn_moves
 
-    user_move = get_move(is_white)
+    user_move = get_move(is_playing_white)
 
 if __name__ == '__main__':
     main()
