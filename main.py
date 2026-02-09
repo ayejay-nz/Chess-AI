@@ -1,7 +1,8 @@
 import re
 
 from moves import find_legal_moves
-from gamestate import is_whites_move, is_playing_white, castling_rights, output_boardstate
+from gamestate import is_whites_move, is_playing_white, castling_rights
+from utils import output_boardstate
 
 def rank_to_row(raw_row, rank):
     """
