@@ -292,6 +292,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
 
     k_step, q_step = 2, -2
     q_extra = - 1
+    k_rook_step, q_rook_step = 3, -4
     if is_whites_move:
         k_rights, q_rights = WK_rights, WQ_rights
     else:
@@ -299,16 +300,25 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
 
     # check kingside castling
     if kingside_free and k_rights:
+        # check rook exists
+        rook_square = square + k_rook_step
+        rook_exists = is_occupied_index([player_bbs[1]], rook_square)
+
         move_square = square + k_step
-        if not is_occupied_index(player_bbs + opposition_bbs, move_square):
+        if not is_occupied_index(player_bbs + opposition_bbs, move_square) and rook_exists:
             moves.append((square, move_square))
 
     # check queenside castling
     if queenside_free and q_rights:
+        # check rook exists
+        rook_square = square + q_rook_step
+        rook_exists = is_occupied_index([player_bbs[1]], rook_square)
+
         move_square = square + q_step
         if (
             not is_occupied_index(player_bbs + opposition_bbs, move_square)
             and not is_occupied_index(player_bbs + opposition_bbs, move_square + q_extra)
+            and rook_exists
         ):
             moves.append((square, move_square))
 
