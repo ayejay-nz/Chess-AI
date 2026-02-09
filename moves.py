@@ -116,8 +116,8 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move):
             move_square = square + move
             move_rank = get_rank(move_square)
 
-            # Check if capture move went around the edge of the board, i.e., it jumps two ranks
-            if abs(rank - move_rank) > 1:
+            # Check if capture move went around the edge of the board, i.e., it moves zero or two ranks
+            if abs(rank - move_rank) != 1:
                 continue
 
             # Check if square has enemy piece which can be captured
