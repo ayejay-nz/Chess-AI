@@ -334,6 +334,12 @@ def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
 
     player_bbs = white_bbs if is_whites_move else black_bbs
     opposition_bbs = black_bbs if is_whites_move else white_bbs
+def find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights):
+    """
+    Find all pseudo-legal moves for the given player
+
+    Returns a list of all capturing moves, castling moves, and forward pawn moves
+    """
 
     # Store pseudo-legal moves for each piece type as (start square, end square)
     pawn_capturing_moves, pawn_moves = find_pawn_moves(player_bbs, opposition_bbs, is_whites_move)
@@ -345,3 +351,16 @@ def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
         find_queen_moves(player_bbs, opposition_bbs)
 
     return piece_capturing_moves, king_moves, castling_moves, pawn_moves
+
+def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
+    """
+    Find all legal moves for the given player
+
+    Returns a list of all capturing moves and a list of non-capturing moves (i.e. forward pawn moves)
+    """
+
+    player_bbs = white_bbs if is_whites_move else black_bbs
+    opposition_bbs = black_bbs if is_whites_move else white_bbs
+
+    pseudo_legal_moves = find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
+    
