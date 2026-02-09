@@ -53,7 +53,7 @@ def user_wants_white():
         elif response in black_options:
             return False
 
-def square_to_index(square, is_white):
+def square_to_index(square):
     """
     Convert a square to its board index 
     """
@@ -61,12 +61,9 @@ def square_to_index(square, is_white):
     file = square[0]
     rank = int(square[1])
 
-    index = ord(file) - 97 + (rank - 1) * 8
-    
-    if is_white: return index
-    else: return 63 - index
+    return ord(file) - 97 + (rank - 1) * 8
 
-def get_move(is_white):
+def get_move():
     """
     Get users move and convert it to index format
 
@@ -82,7 +79,7 @@ def get_move(is_white):
     start_square = move[:2]
     end_square = move[2:]
 
-    return (square_to_index(start_square, is_white), square_to_index(end_square, is_white))
+    return (square_to_index(start_square), square_to_index(end_square))
 
 def main():
     gamestate.is_playing_white = user_wants_white()
@@ -92,7 +89,7 @@ def main():
     capturing_moves, pawn_moves = find_legal_moves(white_bbs, black_bbs, gamestate.is_playing_white, is_whites_move, castling_rights)
     all_moves = capturing_moves + pawn_moves
 
-    user_move = get_move(gamestate.is_playing_white)
+    user_move = get_move()
 
 if __name__ == '__main__':
     main()
