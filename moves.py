@@ -363,6 +363,7 @@ def filter_legal_moves(
     castling_rights,
     en_passant_temp_idx,
     en_passant_real_idx,
+    halfmove_clock,
 ):
     """
     Convert a list of all pseudo-legal moves into legal moves, i.e. remove all moves that result in a check
@@ -376,8 +377,13 @@ def filter_legal_moves(
         """
 
         for move in moves:
-            new_player_bbs, new_opposition_bbs, new_en_passant_temp_idx, _ = apply_move(
-                player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx
+            new_player_bbs, new_opposition_bbs, new_en_passant_temp_idx, _, _ = apply_move(
+                player_bbs,
+                opposition_bbs,
+                move,
+                en_passant_temp_idx,
+                en_passant_real_idx,
+                halfmove_clock,
             )
 
             # See if an opponents piece can attack the king
@@ -443,7 +449,9 @@ def filter_legal_moves(
     return legal_moves
 
 
-def apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx):
+def apply_move(
+    player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx, halfmove_clock
+):
     """
     Apply a users move to their bitboard, and return the modified bitboards
     """
@@ -457,6 +465,8 @@ def apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant
 
     new_en_passant_temp_idx = 0
     new_en_passant_real_idx = 0
+
+    new_halfmove_clock = halfmove_clock + 1
 
     for idx, bb in enumerate(new_player):
         # Find the bitboard containing the piece which is moved
@@ -476,10 +486,14 @@ def apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant
                 new_player[1] = new_player[1] ^ rook_square  # Remove the castled rook
                 new_player[1] = new_player[1] ^ rook_end_square  # Place the castled rook
 
-            # Update temp pawn data on a pawn double move for en passant
-            if idx == 0 and move_delta in (16, -16):
-                new_en_passant_temp_idx = start_idx + move_delta // 2
-                new_en_passant_real_idx = end_idx  # pawn that is captured
+            # Pawn move
+            if idx == 0:
+                new_halfmove_clock = 0
+
+                # Update temp pawn data on a pawn double move for en passant
+                if move_delta in (16, -16):
+                    new_en_passant_temp_idx = start_idx + move_delta // 2
+                    new_en_passant_real_idx = end_idx  # pawn that is captured
 
             new_player[idx] = new_player[idx] ^ start_square  # Remove the moved piece
             new_player[idx] = new_player[idx] ^ end_square  # Place the moved piece
@@ -488,6 +502,7 @@ def apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant
     for idx, bb in enumerate(new_opposition):
         # Remove captured piece
         if bb & end_square:
+            new_halfmove_clock = 0
             new_opposition[idx] = new_opposition[idx] ^ end_square
             break
 
@@ -495,7 +510,13 @@ def apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant
         if idx == 0 and end_square == 2**en_passant_temp_idx:
             new_opposition[0] = new_opposition[0] ^ 2**en_passant_real_idx
 
-    return new_player, new_opposition, new_en_passant_temp_idx, new_en_passant_real_idx
+    return (
+        new_player,
+        new_opposition,
+        new_en_passant_temp_idx,
+        new_en_passant_real_idx,
+        new_halfmove_clock,
+    )
 
 
 def find_pseudo_legal_moves(
@@ -526,7 +547,13 @@ def find_pseudo_legal_moves(
 
 
 def find_legal_moves(
-    white_bbs, black_bbs, is_whites_move, castling_rights, en_passant_temp_idx, en_passant_real_idx
+    white_bbs,
+    black_bbs,
+    is_whites_move,
+    castling_rights,
+    en_passant_temp_idx,
+    en_passant_real_idx,
+    halfmove_clock,
 ):
     """
     Find all legal moves for the given player
@@ -549,6 +576,7 @@ def find_legal_moves(
         castling_rights,
         en_passant_temp_idx,
         en_passant_real_idx,
+        halfmove_clock,
     )
 
     return legal_moves

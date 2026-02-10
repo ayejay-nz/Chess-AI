@@ -8,3 +8,5 @@ castling_rights = WK | WQ | BK | BQ
 
 temp_pawn_idx = 0
 real_pawn_idx = 0
+
+halfmove_clock = 0
