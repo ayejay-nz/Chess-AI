@@ -107,8 +107,8 @@ def get_computer_move(user_bbs, computer_bbs):
     """
 
     legal_moves = find_legal_moves(
-        user_bbs,
         computer_bbs,
+        user_bbs,
         gamestate.is_whites_move,
         gamestate.castling_rights,
         gamestate.temp_pawn_idx,
@@ -123,12 +123,17 @@ def main():
     gamestate.is_playing_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards()
 
-    while True:
-        output_boardstate(white_bbs, black_bbs)
+    user_bbs = white_bbs if gamestate.is_playing_white else black_bbs
+    computer_bbs = black_bbs if gamestate.is_playing_white else white_bbs
 
-        legal_moves = find_legal_moves(
-            white_bbs,
-            black_bbs,
+    is_users_move = gamestate.is_playing_white and gamestate.is_whites_move
+
+    while True:
+        output_boardstate(user_bbs, computer_bbs)
+
+        user_legal_moves = find_legal_moves(
+            user_bbs,
+            computer_bbs,
             gamestate.is_whites_move,
             gamestate.castling_rights,
             gamestate.temp_pawn_idx,
@@ -137,44 +142,45 @@ def main():
         )
 
         # Repeat until user enters a valid move
-        while True:
+        while is_users_move:
             user_move = get_move()
-            is_valid_move = user_move in legal_moves
+            is_valid_move = user_move in user_legal_moves
 
             if is_valid_move:
                 (
-                    white_bbs,
-                    black_bbs,
+                    user_bbs,
+                    computer_bbs,
                     gamestate.temp_pawn_idx,
                     gamestate.real_pawn_idx,
                     gamestate.halfmove_clock,
                 ) = apply_move(
-                    white_bbs,
-                    black_bbs,
+                    user_bbs,
+                    computer_bbs,
                     user_move,
                     gamestate.temp_pawn_idx,
                     gamestate.real_pawn_idx,
                     gamestate.halfmove_clock,
                 )
                 gamestate.is_whites_move = not gamestate.is_whites_move
-                break
+                is_users_move = False
 
-        computer_move = get_computer_move(white_bbs, black_bbs)
+        computer_move = get_computer_move(user_bbs, computer_bbs)
         (
-            black_bbs,
-            white_bbs,
+            computer_bbs,
+            user_bbs,
             gamestate.temp_pawn_idx,
             gamestate.real_pawn_idx,
             gamestate.halfmove_clock,
         ) = apply_move(
-            black_bbs,
-            white_bbs,
+            computer_bbs,
+            user_bbs,
             computer_move,
             gamestate.temp_pawn_idx,
             gamestate.real_pawn_idx,
             gamestate.halfmove_clock,
         )
         gamestate.is_whites_move = not gamestate.is_whites_move
+        is_users_move = True
 
 
 if __name__ == "__main__":

@@ -547,8 +547,8 @@ def find_pseudo_legal_moves(
 
 
 def find_legal_moves(
-    white_bbs,
-    black_bbs,
+    player_bbs,
+    opposition_bbs,
     is_whites_move,
     castling_rights,
     en_passant_temp_idx,
@@ -560,9 +560,6 @@ def find_legal_moves(
 
     Returns a list of all capturing moves and a list of non-capturing moves (i.e. forward pawn moves)
     """
-
-    player_bbs = white_bbs if is_whites_move else black_bbs
-    opposition_bbs = black_bbs if is_whites_move else white_bbs
 
     pseudo_legal_moves = find_pseudo_legal_moves(
         player_bbs, opposition_bbs, is_whites_move, castling_rights, en_passant_temp_idx

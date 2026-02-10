@@ -2,10 +2,13 @@ import gamestate
 from gamestate import PLAYER_ON_BOTTOM
 
 
-def output_boardstate(white_bbs, black_bbs):
+def output_boardstate(user_bbs, computer_bbs):
     """
     Output the current boardstate from the white/black bitboards
     """
+
+    white_bbs = user_bbs if gamestate.is_playing_white else computer_bbs
+    black_bbs = computer_bbs if gamestate.is_playing_white else user_bbs
 
     black_piece_order = ["♙", "♖", "♘", "♗", "♕", "♔"]
     white_piece_order = ["♟", "♜", "♞", "♝", "♛", "♚"]
