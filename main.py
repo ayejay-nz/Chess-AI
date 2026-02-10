@@ -6,16 +6,18 @@ from moves import find_legal_moves
 from gamestate import is_whites_move, castling_rights
 from utils import output_boardstate
 
+
 def rank_to_row(raw_row, rank):
     """
-    Convert a singular row into a row given its rank 
+    Convert a singular row into a row given its rank
 
     Example: raw_row = 255 (11111111), rank = 2 -> 65280 (1111111100000000)
     """
 
     return raw_row << (8 * (rank - 1))
 
-def init_bitboards(): 
+
+def init_bitboards():
     """
     Initialise bitboards for white and black, returning a tuple of the white and black bitboard array, in that order.
 
@@ -32,36 +34,53 @@ def init_bitboards():
     e_file_bit = 0b00010000
 
     # Create bitboards for white
-    bitboards_white = [rank_to_row(pawns_row, 2), rooks_row, knights_row, bishops_row, d_file_bit, e_file_bit]
+    bitboards_white = [
+        rank_to_row(pawns_row, 2),
+        rooks_row,
+        knights_row,
+        bishops_row,
+        d_file_bit,
+        e_file_bit,
+    ]
     # Create bitboards for black
-    bitboards_black = [rank_to_row(pawns_row, 7), rank_to_row(rooks_row, 8), rank_to_row(knights_row, 8), rank_to_row(bishops_row, 8), rank_to_row(d_file_bit, 8), rank_to_row(e_file_bit, 8)]
+    bitboards_black = [
+        rank_to_row(pawns_row, 7),
+        rank_to_row(rooks_row, 8),
+        rank_to_row(knights_row, 8),
+        rank_to_row(bishops_row, 8),
+        rank_to_row(d_file_bit, 8),
+        rank_to_row(e_file_bit, 8),
+    ]
 
     return (bitboards_white, bitboards_black)
+
 
 def user_wants_white():
     """
     Get what colour the user wants to play as
     """
 
-    white_options = ['white', 'w']
-    black_options = ['black', 'b']
+    white_options = ["white", "w"]
+    black_options = ["black", "b"]
 
     while True:
-        response = input('Do you want to play as white or black? \n').lower()
+        response = input("Do you want to play as white or black? \n").lower()
         if response in white_options:
             return True
         elif response in black_options:
             return False
 
+
 def square_to_index(square):
     """
-    Convert a square to its board index 
+    Convert a square to its board index
     """
 
     file = square[0]
     rank = int(square[1])
 
     return ord(file) - 97 + (rank - 1) * 8
+
 
 def get_move():
     """
@@ -71,9 +90,9 @@ def get_move():
     """
 
     while True:
-        move = input('Please enter your move: ').lower()
-        
-        if re.match('[a-h][1-8][a-h][1-8]', move):
+        move = input("Please enter your move: ").lower()
+
+        if re.match("[a-h][1-8][a-h][1-8]", move):
             break
 
     start_square = move[:2]
@@ -81,14 +100,23 @@ def get_move():
 
     return (square_to_index(start_square), square_to_index(end_square))
 
+
 def main():
     gamestate.is_playing_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards()
     output_boardstate(white_bbs, black_bbs)
 
-    legal_moves = find_legal_moves(white_bbs, black_bbs, gamestate.is_whites_move, gamestate.castling_rights)
+    legal_moves = find_legal_moves(
+        white_bbs,
+        black_bbs,
+        gamestate.is_whites_move,
+        gamestate.castling_rights,
+        gamestate.temp_pawn_idx,
+        gamestate.real_pawn_idx,
+    )
 
     user_move = get_move()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
