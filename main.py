@@ -119,6 +119,34 @@ def get_computer_move(user_bbs, computer_bbs):
     return random.choice(legal_moves)
 
 
+def apply_real_move(player_bbs, opposition_bbs, move):
+    """
+    Apply a players move to the bitboards and return the result
+    """
+
+    (
+        player_bbs,
+        opposition_bbs,
+        gamestate.temp_pawn_idx,
+        gamestate.real_pawn_idx,
+        gamestate.halfmove_clock,
+    ) = apply_move(
+        player_bbs,
+        opposition_bbs,
+        move,
+        gamestate.temp_pawn_idx,
+        gamestate.real_pawn_idx,
+        gamestate.halfmove_clock,
+    )
+    gamestate.is_whites_move = not gamestate.is_whites_move
+
+    if gamestate.halfmove_clock >= 100:
+        print("Draw by 50-move rule.")
+        return player_bbs, opposition_bbs, True
+
+    return player_bbs, opposition_bbs, False
+
+
 def main():
     gamestate.is_playing_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards()
@@ -147,39 +175,19 @@ def main():
             is_valid_move = user_move in user_legal_moves
 
             if is_valid_move:
-                (
-                    user_bbs,
-                    computer_bbs,
-                    gamestate.temp_pawn_idx,
-                    gamestate.real_pawn_idx,
-                    gamestate.halfmove_clock,
-                ) = apply_move(
-                    user_bbs,
-                    computer_bbs,
-                    user_move,
-                    gamestate.temp_pawn_idx,
-                    gamestate.real_pawn_idx,
-                    gamestate.halfmove_clock,
+                user_bbs, computer_bbs, game_ended = apply_real_move(
+                    user_bbs, computer_bbs, user_move
                 )
-                gamestate.is_whites_move = not gamestate.is_whites_move
+                if game_ended:
+                    return
+
                 is_users_move = False
 
         computer_move = get_computer_move(user_bbs, computer_bbs)
-        (
-            computer_bbs,
-            user_bbs,
-            gamestate.temp_pawn_idx,
-            gamestate.real_pawn_idx,
-            gamestate.halfmove_clock,
-        ) = apply_move(
-            computer_bbs,
-            user_bbs,
-            computer_move,
-            gamestate.temp_pawn_idx,
-            gamestate.real_pawn_idx,
-            gamestate.halfmove_clock,
-        )
-        gamestate.is_whites_move = not gamestate.is_whites_move
+        computer_bbs, user_bbs, game_ended = apply_real_move(computer_bbs, user_bbs, computer_move)
+        if game_ended:
+            return
+
         is_users_move = True
 
 
