@@ -122,6 +122,7 @@ def apply_real_move(player_bbs, opposition_bbs, move):
         gamestate.temp_pawn_idx,
         gamestate.real_pawn_idx,
         gamestate.halfmove_clock,
+        gamestate.castling_rights,
     ) = apply_move(
         player_bbs,
         opposition_bbs,
@@ -129,6 +130,8 @@ def apply_real_move(player_bbs, opposition_bbs, move):
         gamestate.temp_pawn_idx,
         gamestate.real_pawn_idx,
         gamestate.halfmove_clock,
+        gamestate.castling_rights,
+        gamestate.is_whites_move,
     )
     gamestate.is_whites_move = not gamestate.is_whites_move
 
@@ -163,6 +166,7 @@ def main():
 
     while True:
         output_boardstate(user_bbs, computer_bbs)
+        print(gamestate.castling_rights)
 
         if is_users_move:
             player_bbs = user_bbs

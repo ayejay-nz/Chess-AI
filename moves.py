@@ -1,4 +1,4 @@
-from gamestate import WK, WQ, BK, BQ
+from gamestate import ROOK_START_RIGHTS, WK, WQ, BK, BQ
 
 
 def is_occupied_index(bitboards, square_index):
@@ -377,13 +377,15 @@ def filter_legal_moves(
         """
 
         for move in moves:
-            new_player_bbs, new_opposition_bbs, new_en_passant_temp_idx, _, _ = apply_move(
+            new_player_bbs, new_opposition_bbs, new_en_passant_temp_idx, _, _, _ = apply_move(
                 player_bbs,
                 opposition_bbs,
                 move,
                 en_passant_temp_idx,
                 en_passant_real_idx,
                 halfmove_clock,
+                castling_rights,
+                is_whites_move
             )
 
             # See if an opponents piece can attack the king
@@ -450,7 +452,7 @@ def filter_legal_moves(
 
 
 def apply_move(
-    player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx, halfmove_clock
+    player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx, halfmove_clock, castling_rights, is_whites_move
 ):
     """
     Apply a users move to their bitboard, and return the modified bitboards
@@ -468,26 +470,36 @@ def apply_move(
 
     new_halfmove_clock = halfmove_clock + 1
 
+    new_castling_rights = castling_rights
+
     for idx, bb in enumerate(new_player):
         # Find the bitboard containing the piece which is moved
         if bb & start_square:
-            # Castling moves both the king and a rook
-            if idx == 5 and move_delta in (2, -2):
-                if move_delta == 2:  # Kingside
-                    rook_idx = start_idx + 3
-                    rook_end_idx = rook_idx - 2
-                else:  # Queenside
-                    rook_idx = start_idx - 4
-                    rook_end_idx = rook_idx + 3
+            if idx == 5:
+                # Moving the king removes all castling rights
+                castling_mask = BK | BQ if is_whites_move else WK | WQ
+                new_castling_rights = new_castling_rights & castling_mask
 
-                rook_end_square = 2**rook_end_idx
-                rook_square = 2**rook_idx
+                # Castling moves both the king and a rook            
+                if move_delta in (2, -2):
+                    if move_delta == 2:  # Kingside
+                        rook_idx = start_idx + 3
+                        rook_end_idx = rook_idx - 2
+                    else:  # Queenside
+                        rook_idx = start_idx - 4
+                        rook_end_idx = rook_idx + 3
 
-                new_player[1] = new_player[1] ^ rook_square  # Remove the castled rook
-                new_player[1] = new_player[1] ^ rook_end_square  # Place the castled rook
+                    rook_end_square = 2**rook_end_idx
+                    rook_square = 2**rook_idx
 
-            # Pawn move
-            if idx == 0:
+                    new_player[1] = new_player[1] ^ rook_square  # Remove the castled rook
+                    new_player[1] = new_player[1] ^ rook_end_square  # Place the castled rook
+            elif idx == 1:
+                # Moving a rook makes the player unable to castle that direction
+                key = (is_whites_move, start_idx)
+                if key in ROOK_START_RIGHTS:
+                    new_castling_rights &= ~ROOK_START_RIGHTS[key]
+            elif idx == 0:
                 new_halfmove_clock = 0
 
                 # Update temp pawn data on a pawn double move for en passant
@@ -502,6 +514,12 @@ def apply_move(
     for idx, bb in enumerate(new_opposition):
         # Remove captured piece
         if bb & end_square:
+            # Rook was captured, so see if castling rights should be updated
+            if idx == 1:
+                key = (not is_whites_move, end_idx)
+                if key in ROOK_START_RIGHTS:
+                    new_castling_rights &= ~ROOK_START_RIGHTS[key]
+
             new_halfmove_clock = 0
             new_opposition[idx] = new_opposition[idx] ^ end_square
             break
@@ -516,6 +534,7 @@ def apply_move(
         new_en_passant_temp_idx,
         new_en_passant_real_idx,
         new_halfmove_clock,
+        new_castling_rights
     )
 
 
