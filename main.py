@@ -3,6 +3,7 @@ import random
 
 import gamestate
 
+from game import game_over_status
 from moves import apply_move, find_legal_moves
 from utils import output_boardstate
 
@@ -101,21 +102,12 @@ def get_move():
     return (square_to_index(start_square), square_to_index(end_square))
 
 
-def get_computer_move(user_bbs, computer_bbs):
+def get_computer_move(legal_moves, user_bbs, computer_bbs):
     """
     Generate a move for the computer to make
     """
 
-    legal_moves = find_legal_moves(
-        computer_bbs,
-        user_bbs,
-        gamestate.is_whites_move,
-        gamestate.castling_rights,
-        gamestate.temp_pawn_idx,
-        gamestate.real_pawn_idx,
-        gamestate.halfmove_clock,
-    )
-
+    # Later evaluate position and pick the best move
     return random.choice(legal_moves)
 
 
@@ -147,6 +139,19 @@ def apply_real_move(player_bbs, opposition_bbs, move):
     return player_bbs, opposition_bbs, False
 
 
+def output_game_over_message(status):
+    """
+    Display a simple message after a stalemate or checkmate, depending on who won
+    """
+
+    if status == 0:
+        print("Draw by stalemate")
+    elif status == 1:
+        print("User won by checkmate")
+    else:
+        print("Computer won by checkmate")
+
+
 def main():
     gamestate.is_playing_white = user_wants_white()
     white_bbs, black_bbs = init_bitboards()
@@ -159,9 +164,16 @@ def main():
     while True:
         output_boardstate(user_bbs, computer_bbs)
 
-        user_legal_moves = find_legal_moves(
-            user_bbs,
-            computer_bbs,
+        if is_users_move:
+            player_bbs = user_bbs
+            opposition_bbs = computer_bbs
+        else:
+            player_bbs = computer_bbs
+            opposition_bbs = user_bbs
+
+        legal_moves = find_legal_moves(
+            player_bbs,
+            opposition_bbs,
             gamestate.is_whites_move,
             gamestate.castling_rights,
             gamestate.temp_pawn_idx,
@@ -169,26 +181,43 @@ def main():
             gamestate.halfmove_clock,
         )
 
-        # Repeat until user enters a valid move
-        while is_users_move:
-            user_move = get_move()
-            is_valid_move = user_move in user_legal_moves
-
-            if is_valid_move:
-                user_bbs, computer_bbs, game_ended = apply_real_move(
-                    user_bbs, computer_bbs, user_move
-                )
-                if game_ended:
-                    return
-
-                is_users_move = False
-
-        computer_move = get_computer_move(user_bbs, computer_bbs)
-        computer_bbs, user_bbs, game_ended = apply_real_move(computer_bbs, user_bbs, computer_move)
-        if game_ended:
+        # No legal moves to make, so either stalemate or checkmate
+        if not legal_moves:
+            status = game_over_status(
+                player_bbs,
+                opposition_bbs,
+                is_users_move,
+                gamestate.is_whites_move,
+                gamestate.castling_rights,
+                gamestate.temp_pawn_idx,
+            )
+            output_game_over_message(status)
             return
 
-        is_users_move = True
+        if is_users_move:
+            # Repeat until user enters a valid move
+            while is_users_move:
+                user_move = get_move()
+                is_valid_move = user_move in legal_moves
+
+                if is_valid_move:
+                    user_bbs, computer_bbs, game_ended = apply_real_move(
+                        user_bbs, computer_bbs, user_move
+                    )
+                    if game_ended:
+                        return
+
+                    is_users_move = False
+        else:
+            computer_move = get_computer_move(legal_moves, user_bbs, computer_bbs)
+
+            computer_bbs, user_bbs, game_ended = apply_real_move(
+                computer_bbs, user_bbs, computer_move
+            )
+            if game_ended:
+                return
+
+            is_users_move = True
 
 
 if __name__ == "__main__":
