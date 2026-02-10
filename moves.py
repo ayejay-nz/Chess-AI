@@ -61,7 +61,7 @@ def get_castling_rights(castling_rights):
     
     return (castling_rights & BQ == BQ, castling_rights & BK == BK, castling_rights & WQ == WQ, castling_rights & WK == WK)
 
-def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move):
+def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx):
     """
     Find possible pawn moves
     """
@@ -122,6 +122,10 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move):
 
             # Check if square has enemy piece which can be captured
             if is_occupied_index(opposition_bbs, move_square): 
+                capture_moves.append((square, move_square))
+
+            # En passant
+            if move_square == en_passant_temp_idx:
                 capture_moves.append((square, move_square))
 
         pawn_bb ^= lsb
@@ -332,7 +336,7 @@ def in_check(king_square, opposition_moves):
 
     return any(sq == king_square for _, sq in opposition_moves)
 
-def filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites_move, castling_rights):
+def filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites_move, castling_rights, en_passant_temp_idx, en_passant_real_idx):
     """
     Convert a list of all pseudo-legal moves into legal moves, i.e. remove all moves that result in a check
     """
@@ -345,13 +349,13 @@ def filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites
         """
 
         for move in moves:
-            new_player_bbs, new_opposition_bbs = apply_move(player_bbs, opposition_bbs, move)
+            new_player_bbs, new_opposition_bbs, new_en_passant_temp_idx, _ = apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx)
 
             # See if an opponents piece can attack the king
             king_bb = new_player_bbs[5]
             king_square = king_bb.bit_length() - 1
 
-            o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(new_opposition_bbs, new_player_bbs, not is_whites_move, castling_rights)
+            o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(new_opposition_bbs, new_player_bbs, not is_whites_move, castling_rights, new_en_passant_temp_idx)
 
             # Move results in check
             if not in_check(king_square, o_piece_capturing_moves + o_king_moves):
@@ -375,7 +379,7 @@ def filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites
     # Cannot castle out of check
     king_bb = player_bbs[5]
     king_square = king_bb.bit_length() - 1
-    o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(opposition_bbs, player_bbs, not is_whites_move, castling_rights)
+    o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(opposition_bbs, player_bbs, not is_whites_move, castling_rights, en_passant_temp_idx)
 
     if in_check(king_square, o_piece_capturing_moves):
         return legal_moves
@@ -393,7 +397,7 @@ def filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites
 
     return legal_moves
 
-def apply_move(player_bbs, opposition_bbs, move):
+def apply_move(player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx):
     """
     Apply a users move to their bitboard, and return the modified bitboards
     """
@@ -404,6 +408,9 @@ def apply_move(player_bbs, opposition_bbs, move):
 
     new_player = player_bbs[:]
     new_opposition = opposition_bbs[:]
+
+    new_en_passant_temp_idx = 0
+    new_en_passant_real_idx = 0
 
     for idx, bb in enumerate(new_player):
         # Find the bitboard containing the piece which is moved
@@ -423,6 +430,11 @@ def apply_move(player_bbs, opposition_bbs, move):
                 new_player[1] = new_player[1] ^ rook_square # Remove the castled rook
                 new_player[1] = new_player[1] ^ rook_end_square # Place the castled rook
 
+            # Update temp pawn data on a pawn double move for en passant
+            if idx == 0 and move_delta in (16, -16):
+                new_en_passant_temp_idx = start_idx + move_delta // 2
+                new_en_passant_real_idx = end_idx # pawn that is captured
+
             new_player[idx] = new_player[idx] ^ start_square # Remove the moved piece 
             new_player[idx] = new_player[idx] ^ end_square # Place the moved piece
             break
@@ -433,9 +445,13 @@ def apply_move(player_bbs, opposition_bbs, move):
             new_opposition[idx] = new_opposition[idx] ^ end_square
             break
 
-    return new_player, new_opposition
+        # Remove en passanted pawn
+        if idx == 0 and end_square == 2**en_passant_temp_idx:
+            new_opposition[0] = new_opposition[0] ^ 2**en_passant_real_idx
 
-def find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights):
+    return new_player, new_opposition, new_en_passant_temp_idx, new_en_passant_real_idx
+
+def find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights, en_passant_temp_idx):
     """
     Find all pseudo-legal moves for the given player
 
@@ -443,7 +459,7 @@ def find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling
     """
 
     # Store pseudo-legal moves for each piece type as (start square, end square)
-    pawn_capturing_moves, pawn_moves = find_pawn_moves(player_bbs, opposition_bbs, is_whites_move)
+    pawn_capturing_moves, pawn_moves = find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx)
     king_moves, castling_moves = find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     piece_capturing_moves = pawn_capturing_moves + \
         find_rook_moves(player_bbs, opposition_bbs) + \
@@ -453,7 +469,7 @@ def find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling
 
     return piece_capturing_moves, king_moves, castling_moves, pawn_moves
 
-def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
+def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights, en_passant_temp_idx, en_passant_real_idx):
     """
     Find all legal moves for the given player
 
@@ -463,8 +479,8 @@ def find_legal_moves(white_bbs, black_bbs, is_whites_move, castling_rights):
     player_bbs = white_bbs if is_whites_move else black_bbs
     opposition_bbs = black_bbs if is_whites_move else white_bbs
 
-    pseudo_legal_moves = find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
+    pseudo_legal_moves = find_pseudo_legal_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights, en_passant_temp_idx)
     
-    legal_moves = filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites_move, castling_rights)
+    legal_moves = filter_legal_moves(pseudo_legal_moves, player_bbs, opposition_bbs, is_whites_move, castling_rights, en_passant_temp_idx, en_passant_real_idx)
 
     return legal_moves

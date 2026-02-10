@@ -5,3 +5,6 @@ is_playing_white = True
 
 WK, WQ, BK, BQ = 1, 2, 4, 8
 castling_rights = WK | WQ | BK | BQ
+
+temp_pawn_idx = 0
+real_pawn_idx = 0
