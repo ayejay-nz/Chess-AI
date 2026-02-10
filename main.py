@@ -3,7 +3,6 @@ import re
 import gamestate
 
 from moves import find_legal_moves
-from gamestate import is_whites_move, castling_rights
 from utils import output_boardstate
 
 
