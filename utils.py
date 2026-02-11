@@ -48,3 +48,19 @@ def output_boardstate(user_bbs, computer_bbs):
         lines.append("  h g f e d c b a")
 
     print("\n".join(lines))
+
+
+def get_rank(square):
+    """
+    Get a squares rank (0-7) from its index
+    """
+
+    return square // 8
+
+
+def get_file(square):
+    """
+    Get a squares file (0-7) from its index
+    """
+
+    return square % 8

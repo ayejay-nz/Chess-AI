@@ -1,4 +1,5 @@
 from gamestate import ROOK_START_RIGHTS, WK, WQ, BK, BQ
+from utils import get_rank, get_file
 
 
 def is_occupied_index(bitboards, square_index):
@@ -13,22 +14,6 @@ def is_occupied_index(bitboards, square_index):
             return True
 
     return False
-
-
-def get_rank(square):
-    """
-    Get a squares rank (0-7) from its index
-    """
-
-    return square // 8
-
-
-def get_file(square):
-    """
-    Get a squares file (0-7) from its index
-    """
-
-    return square % 8
 
 
 def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
