@@ -64,3 +64,23 @@ def get_file(square):
     """
 
     return square % 8
+
+
+def piece_to_bitboard_index(piece_str):
+    """
+    Maps a piece character to its corresponding bitboard index
+    """
+
+    match piece_str:
+        case "p":
+            return 0
+        case "r":
+            return 1
+        case "n":
+            return 2
+        case "b":
+            return 3
+        case "q":
+            return 4
+        case "k":
+            return 5

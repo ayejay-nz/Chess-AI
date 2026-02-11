@@ -5,7 +5,7 @@ import gamestate
 
 from game import game_over_status
 from moves import apply_move, find_legal_moves
-from utils import output_boardstate
+from utils import get_rank, output_boardstate
 
 
 def rank_to_row(raw_row, rank):
@@ -83,7 +83,22 @@ def square_to_index(square):
     return ord(file) - 97 + (rank - 1) * 8
 
 
-def get_move():
+def is_promotion_move(start_idx, end_idx, pawn_bb):
+    """
+    Check if a user entered move is a promotion move
+    """
+
+    start_square = 2**start_idx
+
+    # User is moving a pawn to final rank
+    if start_square & pawn_bb:
+        rank = get_rank(end_idx)
+        return rank == 7 if gamestate.is_playing_white else rank == 0
+
+    return False
+
+
+def get_move(pawn_bbs):
     """
     Get users move and convert it to index format
 
@@ -99,7 +114,19 @@ def get_move():
     start_square = move[:2]
     end_square = move[2:]
 
-    return (square_to_index(start_square), square_to_index(end_square))
+    start_idx = square_to_index(start_square)
+    end_idx = square_to_index(end_square)
+
+    promoting = is_promotion_move(start_idx, end_idx, pawn_bbs)
+    promotion_piece = None
+    while promoting:
+        promotion_piece = input(
+            "Select a piece to promote to: (q)ueen, (n)knight, (r)ook, (b)ishop: "
+        ).lower()
+        if promotion_piece in ["q", "n", "r", "b"]:
+            break
+
+    return start_idx, end_idx, promotion_piece
 
 
 def get_computer_move(legal_moves, user_bbs, computer_bbs):
@@ -166,7 +193,6 @@ def main():
 
     while True:
         output_boardstate(user_bbs, computer_bbs)
-        print(gamestate.castling_rights)
 
         if is_users_move:
             player_bbs = user_bbs
@@ -201,7 +227,7 @@ def main():
         if is_users_move:
             # Repeat until user enters a valid move
             while is_users_move:
-                user_move = get_move()
+                user_move = get_move(user_bbs[0])
                 is_valid_move = user_move in legal_moves
 
                 if is_valid_move:
