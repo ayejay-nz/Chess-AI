@@ -451,6 +451,14 @@ def filter_legal_moves(
     return legal_moves
 
 
+def is_promotion_square(end_idx, is_whites_move):
+    """
+    Detects if a square is a promotion square for a players pawn
+    """
+
+    return (is_whites_move and end_idx >= 56) or (not is_whites_move and end_idx <= 7)
+
+
 def apply_move(
     player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx, halfmove_clock, castling_rights, is_whites_move
 ):
@@ -501,6 +509,10 @@ def apply_move(
                     new_castling_rights &= ~ROOK_START_RIGHTS[key]
             elif idx == 0:
                 new_halfmove_clock = 0
+
+                if is_promotion_square(end_idx, is_whites_move):
+                    new_player[0] ^= end_square # Remove pawn
+                    new_player[4] ^= end_square # Auto promote to queen
 
                 # Update temp pawn data on a pawn double move for en passant
                 if move_delta in (16, -16):
