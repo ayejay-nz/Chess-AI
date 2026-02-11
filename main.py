@@ -3,7 +3,7 @@ import random
 
 import gamestate
 
-from game import game_over_status
+from game import draw_by_insufficient_material, game_over_status
 from moves import apply_move, find_legal_moves
 from utils import get_rank, output_boardstate
 
@@ -222,6 +222,11 @@ def main():
                 gamestate.temp_pawn_idx,
             )
             output_game_over_message(status)
+            return
+
+        # Check if draw by insufficient material
+        if draw_by_insufficient_material(user_bbs, computer_bbs):
+            print("Draw by insufficient material")
             return
 
         if is_users_move:
