@@ -162,11 +162,7 @@ def apply_real_move(player_bbs, opposition_bbs, move):
     )
     gamestate.is_whites_move = not gamestate.is_whites_move
 
-    if gamestate.halfmove_clock >= 100:
-        print("Draw by 50-move rule.")
-        return player_bbs, opposition_bbs, True
-
-    return player_bbs, opposition_bbs, False
+    return player_bbs, opposition_bbs
 
 
 def output_game_over_message(status):
@@ -242,6 +238,11 @@ def main():
         ):
             print("Draw by threefold repetition")
             return
+        
+        # Check if draw by 50-move rule
+        if gamestate.halfmove_clock >= 100:
+            print("Draw by 50-move rule.")
+            return
 
         if is_users_move:
             # Repeat until user enters a valid move
@@ -250,21 +251,17 @@ def main():
                 is_valid_move = user_move in legal_moves
 
                 if is_valid_move:
-                    user_bbs, computer_bbs, game_ended = apply_real_move(
+                    user_bbs, computer_bbs = apply_real_move(
                         user_bbs, computer_bbs, user_move
                     )
-                    if game_ended:
-                        return
 
                     is_users_move = False
         else:
             computer_move = get_computer_move(legal_moves, user_bbs, computer_bbs)
 
-            computer_bbs, user_bbs, game_ended = apply_real_move(
+            computer_bbs, user_bbs = apply_real_move(
                 computer_bbs, user_bbs, computer_move
             )
-            if game_ended:
-                return
 
             is_users_move = True
 
