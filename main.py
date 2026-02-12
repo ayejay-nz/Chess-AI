@@ -3,7 +3,7 @@ import random
 
 import gamestate
 
-from game import draw_by_insufficient_material, game_over_status
+from game import draw_by_insufficient_material, game_over_status, update_repetition_count
 from moves import apply_move, find_legal_moves
 from utils import get_rank, output_boardstate
 
@@ -227,6 +227,20 @@ def main():
         # Check if draw by insufficient material
         if draw_by_insufficient_material(user_bbs, computer_bbs):
             print("Draw by insufficient material")
+            return
+
+        # Check if draw by threefold repetition
+        white_bbs_ref = user_bbs if gamestate.is_playing_white else computer_bbs
+        black_bbs_ref = computer_bbs if gamestate.is_playing_white else user_bbs
+        if update_repetition_count(
+            white_bbs_ref,
+            black_bbs_ref,
+            gamestate.is_whites_move,
+            gamestate.castling_rights,
+            gamestate.temp_pawn_idx,
+            legal_moves,
+        ):
+            print("Draw by threefold repetition")
             return
 
         if is_users_move:

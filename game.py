@@ -1,3 +1,4 @@
+import gamestate
 from moves import find_pseudo_legal_moves, in_check
 from utils import get_file, get_rank
 
@@ -89,3 +90,56 @@ def draw_by_insufficient_material(white_bbs, black_bbs):
         return not (bishop1_is_white ^ bishop2_is_white)
 
     return False
+
+
+def has_legal_ep_capture(pawn_bb, legal_moves, en_passant_temp_idx):
+    """
+    Check if a side has a legal en passant move
+    """
+
+    if en_passant_temp_idx == 0:
+        return False
+
+    ep_file = get_file(en_passant_temp_idx)
+    for start_square, end_square, _ in legal_moves:
+        if end_square != en_passant_temp_idx:
+            continue
+        if not (2**start_square & pawn_bb):
+            continue
+        if abs(get_file(start_square) - ep_file) == 1:
+            return True
+
+    return False
+
+
+def position_key(white_bbs, black_bbs, is_whites_move, castling_rights, en_passant_temp_idx):
+    """
+    Generate a key of the current game position
+    """
+
+    return (
+        tuple(white_bbs),
+        tuple(black_bbs),
+        is_whites_move,
+        castling_rights,
+        en_passant_temp_idx,
+    )
+
+
+def update_repetition_count(
+    white_bbs, black_bbs, is_whites_move, castling_rights, en_passant_temp_idx, legal_moves
+):
+    """
+    Update gamestate position_counts dictionary
+    """
+
+    side_pawn_bb = white_bbs[0] if is_whites_move else black_bbs[0]
+    ep_key = (
+        en_passant_temp_idx
+        if has_legal_ep_capture(side_pawn_bb, legal_moves, en_passant_temp_idx)
+        else 0
+    )
+
+    key = position_key(white_bbs, black_bbs, is_whites_move, castling_rights, ep_key)
+    gamestate.position_counts[key] = gamestate.position_counts.get(key, 0) + 1
+    return gamestate.position_counts[key] >= 3

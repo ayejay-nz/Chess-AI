@@ -16,3 +16,5 @@ temp_pawn_idx = 0
 real_pawn_idx = 0
 
 halfmove_clock = 0
+
+position_counts = {}
