@@ -94,3 +94,26 @@ def game_bbs_from_indexes(
         black_bbs.append(bb)
 
     return (white_bbs, black_bbs)
+
+
+def init_default_bbs():
+    """
+    Initialise a default set of bitboards
+    """
+
+    return game_bbs_from_indexes(
+        ([8, 9, 10, 11, 12, 13, 14, 15], [48, 49, 50, 51, 52, 53, 54, 55]),
+        ([0, 7], [56, 63]),
+        ([1, 6], [57, 62]),
+        ([2, 5], [58, 61]),
+        ([3], [59]),
+        ([4], [60]),
+    )
+
+
+def pad_move_tuples(moves):
+    """
+    Converts a list of moves of the form (start_square, end_square) to (start_square, end_square, None)
+    """
+
+    return [(m[0], m[1], None) for m in moves]

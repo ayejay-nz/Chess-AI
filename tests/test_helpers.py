@@ -1,5 +1,5 @@
 import gamestate
-from helpers import set_gamestate, reset_gamestate, game_bbs_from_indexes
+from helpers import set_gamestate, reset_gamestate, game_bbs_from_indexes, pad_move_tuples
 
 
 def test_set_gamestate():
@@ -53,3 +53,10 @@ def test_game_bbs_from_indexes():
         assert bb == expected_white_bb_values[idx]
     for idx, bb in enumerate(bbs[1]):
         assert bb == expected_black_bb_values[idx]
+
+
+def test_pad_move_tuples():
+    moves = [(1, 2), (6, 7)]
+    padded_moves = pad_move_tuples(moves)
+
+    assert padded_moves == [(1, 2, None), (6, 7, None)]
