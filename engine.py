@@ -1,12 +1,20 @@
-PIECE_VALUES = {
-    0: 100,  # pawn
-    1: 500,  # rook
-    2: 320,  # knight
-    3: 330,  # bishop
-    4: 900,  # queen
+MG_VALUES = {
+    0: 82,  # pawn
+    1: 477,  # rook
+    2: 337,  # knight
+    3: 365,  # bishop
+    4: 1025,  # queen
+}
+EG_VALUES = {
+    0: 94,  # pawn
+    1: 512,  # rook
+    2: 281,  # knight
+    3: 197,  # bishop
+    4: 936,  # queen
 }
 
 
+# fmt: off
 mg_pawn_table = [
       0,   0,   0,   0,   0,   0,  0,   0,
      98, 134,  61,  95,  68, 126, 34, -11,
@@ -127,7 +135,34 @@ eg_king_table = [
     -27, -11,   4,  13,  14,   4,  -5, -17,
     -53, -34, -21, -11, -28, -14, -24, -43,
 ]
+# fmt: on
 
+
+mg_bbs = [
+    mg_pawn_table,
+    mg_rook_table,
+    mg_knight_table,
+    mg_bishop_table,
+    mg_queen_table,
+    mg_king_table,
+]
+eg_bbs = [
+    eg_pawn_table,
+    eg_rook_table,
+    eg_knight_table,
+    eg_bishop_table,
+    eg_queen_table,
+    eg_king_table,
+]
+
+
+phase_inc = {
+    0: 0,  # pawn
+    1: 2,  # rook
+    2: 1,  # knight
+    3: 1,  # bishop
+    4: 4,  # queen
+}
 
 
 def get_material_count(white_bbs, black_bbs):
@@ -145,6 +180,47 @@ def get_material_count(white_bbs, black_bbs):
         material_count += piece_count * PIECE_VALUES.get(idx, 0)
 
     return material_count
+
+
+def pesto_evaluation(white_bbs, black_bbs):
+    """
+    Evaluate the current positoin using opening/middlegame and endgame piece-square tables,
+    interpolating between the two based on the remaining material
+    """
+
+    mg_eval = 0
+    eg_eval = 0
+    game_phase = 0
+
+    for idx, bb in enumerate(white_bbs):
+        while bb:
+            lsb = bb & -bb
+            square = (lsb.bit_length() - 1) ^ 56
+
+            mg_eval += mg_bbs[idx][square] + MG_VALUES.get(idx, 0)
+            eg_eval += eg_bbs[idx][square] + EG_VALUES.get(idx, 0)
+            game_phase += phase_inc.get(idx, 0)
+
+            bb ^= lsb
+
+    for idx, bb in enumerate(black_bbs):
+        while bb:
+            lsb = bb & -bb
+            square = lsb.bit_length() - 1
+
+            mg_eval -= mg_bbs[idx][square] + MG_VALUES.get(idx, 0)
+            eg_eval -= eg_bbs[idx][square] + EG_VALUES.get(idx, 0)
+            game_phase += phase_inc.get(idx, 0)
+
+            bb ^= lsb
+
+    # tapered eval
+    mg_phase = game_phase
+    if mg_phase > 24:
+        mg_phase = 24  # in case of early promotion
+    eg_phase = 24 - mg_phase
+
+    return (mg_eval * mg_phase + eg_eval * eg_phase) / 24
 
 
 def evaluate_position(white_bbs, black_bbs, is_whites_move):
