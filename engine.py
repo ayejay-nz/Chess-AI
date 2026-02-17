@@ -1,3 +1,11 @@
+import math
+import time
+
+from game import draw_by_insufficient_material
+from moves import apply_move, find_legal_moves, find_pseudo_legal_moves, in_check
+
+CHECKMATE_VALUE = 32000
+
 MG_VALUES = {
     0: 82,  # pawn
     1: 477,  # rook
@@ -223,20 +231,109 @@ def pesto_evaluation(white_bbs, black_bbs):
     return (mg_eval * mg_phase + eg_eval * eg_phase) / 24
 
 
-def evaluate_position(white_bbs, black_bbs, is_whites_move):
+def evaluate_position(
+    legal_moves,
+    white_bbs,
+    black_bbs,
+    is_whites_move,
+    en_passant_temp_idx,
+    en_passant_real_idx,
+    castling_rights,
+    halfmove_clock,
+    position_counts,
+    deadline=None,
+):
     """
     Returns an evaluation of the the specified board position from the
-    point of view of the side to move
+    point of view of white, as well as the best move
     """
 
-    white_based_eval = 0
+    best_evaluation = -math.inf if is_whites_move else math.inf
+    best_move = ()
 
-    for idx, bb in enumerate(white_bbs):
-        piece_count = bb.bit_count()
-        white_based_eval += piece_count * PIECE_VALUES.get(idx, 0)
+    for move in legal_moves:
+        if deadline is not None and time.monotonic() >= deadline:
+            break
 
-    for idx, bb in enumerate(black_bbs):
-        piece_count = bb.bit_count()
-        black_based_eval -= piece_count * PIECE_VALUES.get(idx, 0)
+        current_eval = None
 
-    return white_based_eval if is_whites_move else -white_based_eval
+        player_bbs = white_bbs if is_whites_move else black_bbs
+        opposition_bbs = black_bbs if is_whites_move else white_bbs
+
+        (
+            new_player_bbs,
+            new_opposition_bbs,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+            new_halfmove_clock,
+            new_castling_rights,
+        ) = apply_move(
+            player_bbs,
+            opposition_bbs,
+            move,
+            en_passant_temp_idx,
+            en_passant_real_idx,
+            halfmove_clock,
+            castling_rights,
+            is_whites_move,
+        )
+
+        opposition_legal_moves = find_legal_moves(
+            new_opposition_bbs,
+            new_player_bbs,
+            not is_whites_move,
+            new_castling_rights,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+            new_halfmove_clock,
+        )
+
+        # Move results in a mate
+        if not opposition_legal_moves:
+            piece_capturing_moves, king_moves, _, _ = find_pseudo_legal_moves(
+                new_player_bbs,
+                new_opposition_bbs,
+                is_whites_move,
+                new_castling_rights,
+                new_en_passant_temp_idx,
+            )
+            king_bb = new_opposition_bbs[5]
+            king_square = king_bb.bit_length() - 1
+
+            # Checkmate, so return move as it is always the best
+            if in_check(king_square, piece_capturing_moves + king_moves):
+                best_evaluation = CHECKMATE_VALUE if is_whites_move else -CHECKMATE_VALUE
+                best_move = move
+                break
+
+            # Stalemate, so evaluation is 0 at worst
+            current_eval = 0
+
+        # Move results in a draw by insufficient material
+        if draw_by_insufficient_material(new_player_bbs, new_opposition_bbs):
+            current_eval = 0
+
+        # Check for threefold repetition with transposition table
+
+        # Move results in a draw by 50-move rule
+        if new_halfmove_clock >= 100:
+            current_eval = 0
+
+        # Compare pesto evaluation to 0 (if the move results in an draw)
+        white_bbs_ref = new_player_bbs if is_whites_move else new_opposition_bbs
+        black_bbs_ref = new_opposition_bbs if is_whites_move else new_player_bbs
+        pesto_eval = pesto_evaluation(white_bbs_ref, black_bbs_ref)
+        if current_eval is not None:
+            evaluation = (
+                max(pesto_eval, current_eval) if is_whites_move else min(pesto_eval, current_eval)
+            )
+        else:
+            evaluation = pesto_eval
+
+        if (evaluation > best_evaluation and is_whites_move) or (
+            evaluation < best_evaluation and not is_whites_move
+        ):
+            best_evaluation = evaluation
+            best_move = move
+
+    return best_evaluation, best_move

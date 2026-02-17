@@ -7,7 +7,7 @@ import gamestate
 from game import draw_by_insufficient_material, game_over_status, update_repetition_count
 from moves import apply_move, find_legal_moves
 from utils import get_rank, output_boardstate
-from engine import pesto_evaluation
+from engine import evaluate_position
 
 
 def rank_to_row(raw_row, rank):
@@ -131,27 +131,26 @@ def get_move(pawn_bbs):
     return start_idx, end_idx, promotion_piece
 
 
-def get_computer_move(legal_moves, user_bbs, computer_bbs):
+def get_computer_move(legal_moves, white_bbs, black_bbs):
     """
     Generate a move for the computer to make
     """
 
-    best_evaluation = -math.inf if gamestate.is_whites_move else math.inf
-    best_move = ()
+    evaluation, move = evaluate_position(
+        legal_moves,
+        white_bbs,
+        black_bbs,
+        gamestate.is_whites_move,
+        gamestate.temp_pawn_idx,
+        gamestate.real_pawn_idx,
+        gamestate.castling_rights,
+        gamestate.halfmove_clock,
+        gamestate.position_counts,
+    )
 
-    for move in legal_moves:
-        new_computer_bbs, new_user_bbs = apply_real_move(computer_bbs, user_bbs, move)
-        white_bbs_ref = new_computer_bbs if gamestate.is_whites_move else new_user_bbs
-        black_bbs_ref = new_user_bbs if gamestate.is_whites_move else new_computer_bbs
+    print(f"Evaluation: {evaluation}")
 
-        evaluation = pesto_evaluation(white_bbs_ref, black_bbs_ref)
-        if (evaluation > best_evaluation and gamestate.is_whites_move) or (
-            evaluation < best_evaluation and not gamestate.is_whites_move
-        ):
-            best_evaluation = evaluation
-            best_move = move
-
-    return best_move
+    return move
 
 
 def apply_real_move(player_bbs, opposition_bbs, move):
@@ -275,7 +274,7 @@ def main():
                     gamestate.is_whites_move = not gamestate.is_whites_move
                     is_users_move = False
         else:
-            computer_move = get_computer_move(legal_moves, user_bbs, computer_bbs)
+            computer_move = get_computer_move(legal_moves, white_bbs_ref, black_bbs_ref)
             computer_bbs, user_bbs = apply_real_move(computer_bbs, user_bbs, computer_move)
 
             gamestate.is_whites_move = not gamestate.is_whites_move
