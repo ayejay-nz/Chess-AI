@@ -12,8 +12,8 @@ ROOK_START_RIGHTS = {
     (False, 63): BK,
 }
 
-temp_pawn_idx = 0
-real_pawn_idx = 0
+temp_pawn_idx = -1
+real_pawn_idx = -1
 
 halfmove_clock = 0
 

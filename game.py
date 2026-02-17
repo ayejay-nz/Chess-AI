@@ -97,7 +97,7 @@ def has_legal_ep_capture(pawn_bb, legal_moves, en_passant_temp_idx):
     Check if a side has a legal en passant move
     """
 
-    if en_passant_temp_idx == 0:
+    if en_passant_temp_idx == -1:
         return False
 
     ep_file = get_file(en_passant_temp_idx)

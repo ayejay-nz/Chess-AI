@@ -7,7 +7,10 @@ def is_occupied_index(bitboards, square_index):
     Check if a square is occupied by a piece given a set of bitboards
     """
 
-    square = 2**square_index
+    if square_index < 0 or square_index > 63:
+        return False
+
+    square = 1 << square_index
 
     for bb in bitboards:
         if bb & square:
@@ -93,6 +96,9 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
 
         # Check if a pawn can move a single square forward
         move_square = square + 8 if is_whites_move else square - 8
+        if move_square < 0 or move_square > 63:
+            return moves
+
         can_single_move = not is_occupied_index(player_bbs + opposition_bbs, move_square)
 
         if not can_single_move:
@@ -139,6 +145,9 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
 
         for move in pawn_capture_moves:
             move_square = square + move
+            if move_square < 0 or move_square > 63:
+                continue
+
             move_rank = get_rank(move_square)
 
             # Check if capture move went around the edge of the board, i.e., it moves zero or two ranks
@@ -499,8 +508,9 @@ def apply_move(
     new_player = player_bbs[:]
     new_opposition = opposition_bbs[:]
 
-    new_en_passant_temp_idx = 0
-    new_en_passant_real_idx = 0
+    new_en_passant_temp_idx = -1
+    new_en_passant_real_idx = -1
+    moved_piece_idx = None
 
     new_halfmove_clock = halfmove_clock + 1
 
@@ -509,6 +519,7 @@ def apply_move(
     for idx, bb in enumerate(new_player):
         # Find the bitboard containing the piece which is moved
         if bb & start_square:
+            moved_piece_idx = idx
             if idx == 5:
                 # Moving the king removes all castling rights
                 castling_mask = BK | BQ if is_whites_move else WK | WQ
@@ -565,7 +576,7 @@ def apply_move(
             break
 
         # Remove en passanted pawn
-        if idx == 0 and end_square == 2**en_passant_temp_idx:
+        if idx == 0 and moved_piece_idx == 0 and end_idx == en_passant_temp_idx:
             new_opposition[0] = new_opposition[0] ^ 2**en_passant_real_idx
 
     return (
