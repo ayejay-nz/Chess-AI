@@ -538,8 +538,9 @@ def apply_move(
 
                 if is_promotion_square(end_idx, is_whites_move):
                     promotion_idx = piece_to_bitboard_index(promotion_piece)
-                    new_player[0] ^= end_square  # Remove pawn
+                    new_player[0] ^= start_square  # Remove pawn
                     new_player[promotion_idx] ^= end_square  # Promote to correct piece
+                    break
 
                 # Update temp pawn data on a pawn double move for en passant
                 if move_delta in (16, -16):
