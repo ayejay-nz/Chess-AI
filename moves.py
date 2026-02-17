@@ -295,7 +295,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
 
     king_bb = player_bbs[5]
     if king_bb == 0:
-        return moves
+        return moves, castling_moves
 
     square = king_bb.bit_length() - 1
     rank = get_rank(square)
