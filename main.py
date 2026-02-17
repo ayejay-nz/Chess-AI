@@ -160,7 +160,6 @@ def apply_real_move(player_bbs, opposition_bbs, move):
         gamestate.castling_rights,
         gamestate.is_whites_move,
     )
-    gamestate.is_whites_move = not gamestate.is_whites_move
 
     return player_bbs, opposition_bbs
 
@@ -251,18 +250,15 @@ def main():
                 is_valid_move = user_move in legal_moves
 
                 if is_valid_move:
-                    user_bbs, computer_bbs = apply_real_move(
-                        user_bbs, computer_bbs, user_move
-                    )
+                    user_bbs, computer_bbs = apply_real_move(user_bbs, computer_bbs, user_move)
 
+                    gamestate.is_whites_move = not gamestate.is_whites_move
                     is_users_move = False
         else:
             computer_move = get_computer_move(legal_moves, user_bbs, computer_bbs)
+            computer_bbs, user_bbs = apply_real_move(computer_bbs, user_bbs, computer_move)
 
-            computer_bbs, user_bbs = apply_real_move(
-                computer_bbs, user_bbs, computer_move
-            )
-
+            gamestate.is_whites_move = not gamestate.is_whites_move
             is_users_move = True
 
 
