@@ -173,23 +173,6 @@ phase_inc = {
 }
 
 
-def get_material_count(white_bbs, black_bbs):
-    """
-    Return the centipawn value of the remaining pieces (0 for king)
-    """
-
-    material_count = 0
-
-    for idx, bb in enumerate(white_bbs):
-        piece_count = bb.bit_count()
-        material_count += piece_count * PIECE_VALUES.get(idx, 0)
-    for idx, bb in enumerate(black_bbs):
-        piece_count = bb.bit_count()
-        material_count += piece_count * PIECE_VALUES.get(idx, 0)
-
-    return material_count
-
-
 def pesto_evaluation(white_bbs, black_bbs):
     """
     Evaluate the current position using opening/middlegame and endgame piece-square tables,
