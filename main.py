@@ -1,11 +1,13 @@
 import re
 import random
+import math
 
 import gamestate
 
 from game import draw_by_insufficient_material, game_over_status, update_repetition_count
 from moves import apply_move, find_legal_moves
 from utils import get_rank, output_boardstate
+from engine import pesto_evaluation
 
 
 def rank_to_row(raw_row, rank):
@@ -134,8 +136,22 @@ def get_computer_move(legal_moves, user_bbs, computer_bbs):
     Generate a move for the computer to make
     """
 
-    # Later evaluate position and pick the best move
-    return random.choice(legal_moves)
+    best_evaluation = -math.inf if gamestate.is_whites_move else math.inf
+    best_move = ()
+
+    for move in legal_moves:
+        new_computer_bbs, new_user_bbs = apply_real_move(computer_bbs, user_bbs, move)
+        white_bbs_ref = new_computer_bbs if gamestate.is_whites_move else new_user_bbs
+        black_bbs_ref = new_user_bbs if gamestate.is_whites_move else new_computer_bbs
+
+        evaluation = pesto_evaluation(white_bbs_ref, black_bbs_ref)
+        if (evaluation > best_evaluation and gamestate.is_whites_move) or (
+            evaluation < best_evaluation and not gamestate.is_whites_move
+        ):
+            best_evaluation = evaluation
+            best_move = move
+
+    return best_move
 
 
 def apply_real_move(player_bbs, opposition_bbs, move):
@@ -237,7 +253,7 @@ def main():
         ):
             print("Draw by threefold repetition")
             return
-        
+
         # Check if draw by 50-move rule
         if gamestate.halfmove_clock >= 100:
             print("Draw by 50-move rule.")
