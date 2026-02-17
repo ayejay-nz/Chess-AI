@@ -184,7 +184,7 @@ def get_material_count(white_bbs, black_bbs):
 
 def pesto_evaluation(white_bbs, black_bbs):
     """
-    Evaluate the current positoin using opening/middlegame and endgame piece-square tables,
+    Evaluate the current position using opening/middlegame and endgame piece-square tables,
     interpolating between the two based on the remaining material
     """
 
