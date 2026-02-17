@@ -243,14 +243,18 @@ def main():
         # Check if draw by threefold repetition
         white_bbs_ref = user_bbs if gamestate.is_playing_white else computer_bbs
         black_bbs_ref = computer_bbs if gamestate.is_playing_white else user_bbs
-        if update_repetition_count(
+
+        repetition_count = update_repetition_count(
+            gamestate.position_counts,
             white_bbs_ref,
             black_bbs_ref,
             gamestate.is_whites_move,
             gamestate.castling_rights,
             gamestate.temp_pawn_idx,
             legal_moves,
-        ):
+        )
+
+        if repetition_count >= 3:
             print("Draw by threefold repetition")
             return
 

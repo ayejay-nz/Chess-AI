@@ -127,10 +127,16 @@ def position_key(white_bbs, black_bbs, is_whites_move, castling_rights, en_passa
 
 
 def update_repetition_count(
-    white_bbs, black_bbs, is_whites_move, castling_rights, en_passant_temp_idx, legal_moves
+    position_counts,
+    white_bbs,
+    black_bbs,
+    is_whites_move,
+    castling_rights,
+    en_passant_temp_idx,
+    legal_moves,
 ):
     """
-    Update gamestate position_counts dictionary
+    Update position_counts dictionary and return total number of repetition
     """
 
     side_pawn_bb = white_bbs[0] if is_whites_move else black_bbs[0]
@@ -141,5 +147,5 @@ def update_repetition_count(
     )
 
     key = position_key(white_bbs, black_bbs, is_whites_move, castling_rights, ep_key)
-    gamestate.position_counts[key] = gamestate.position_counts.get(key, 0) + 1
-    return gamestate.position_counts[key] >= 3
+    position_counts[key] = position_counts.get(key, 0) + 1
+    return position_counts[key]
