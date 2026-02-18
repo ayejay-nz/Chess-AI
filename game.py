@@ -126,6 +126,32 @@ def position_key(white_bbs, black_bbs, is_whites_move, castling_rights, en_passa
     )
 
 
+def set_position_count(
+    position_counts,
+    white_bbs,
+    black_bbs,
+    is_whites_move,
+    castling_rights,
+    en_passant_temp_idx,
+    legal_moves,
+):
+    """
+    Update position_counts dictionary and return the updated version alongside the key
+    """
+
+    side_pawn_bb = white_bbs[0] if is_whites_move else black_bbs[0]
+    ep_key = (
+        en_passant_temp_idx
+        if has_legal_ep_capture(side_pawn_bb, legal_moves, en_passant_temp_idx)
+        else 0
+    )
+
+    key = position_key(white_bbs, black_bbs, is_whites_move, castling_rights, ep_key)
+    position_counts[key] = position_counts.get(key, 0) + 1
+
+    return key, position_counts
+
+
 def update_repetition_count(
     position_counts,
     white_bbs,
@@ -139,13 +165,14 @@ def update_repetition_count(
     Update position_counts dictionary and return total number of repetition
     """
 
-    side_pawn_bb = white_bbs[0] if is_whites_move else black_bbs[0]
-    ep_key = (
-        en_passant_temp_idx
-        if has_legal_ep_capture(side_pawn_bb, legal_moves, en_passant_temp_idx)
-        else 0
+    key, position_counts = set_position_count(
+        position_counts,
+        white_bbs,
+        black_bbs,
+        is_whites_move,
+        castling_rights,
+        en_passant_temp_idx,
+        legal_moves,
     )
 
-    key = position_key(white_bbs, black_bbs, is_whites_move, castling_rights, ep_key)
-    position_counts[key] = position_counts.get(key, 0) + 1
     return position_counts[key]
