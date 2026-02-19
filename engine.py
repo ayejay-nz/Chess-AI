@@ -1,7 +1,7 @@
 import math
 import time
 
-from game import draw_by_insufficient_material
+from game import draw_by_insufficient_material, set_position_count
 from moves import apply_move, find_legal_moves, find_pseudo_legal_moves, in_check
 
 CHECKMATE_VALUE = 32000
@@ -214,35 +214,74 @@ def pesto_evaluation(white_bbs, black_bbs):
     return (mg_eval * mg_phase + eg_eval * eg_phase) / 24
 
 
-def evaluate_position(
-    legal_moves,
-    white_bbs,
-    black_bbs,
+def static_eval(player_bbs, opposition_bbs, is_whites_move):
+    """
+    Return an evaluation relative to the player provided
+    """
+
+    white_bbs = player_bbs if is_whites_move else opposition_bbs
+    black_bbs = opposition_bbs if is_whites_move else player_bbs
+    score_white_pov = pesto_evaluation(white_bbs, black_bbs)
+
+    return score_white_pov if is_whites_move else -score_white_pov
+
+
+def negamax(
+    player_bbs,
+    opposition_bbs,
     is_whites_move,
+    castling_rights,
     en_passant_temp_idx,
     en_passant_real_idx,
-    castling_rights,
     halfmove_clock,
-    position_counts,
+    alpha,
+    beta,
+    depth=3,
     deadline=None,
 ):
     """
-    Returns an evaluation of the the specified board position from the
-    point of view of white, as well as the best move
+    Negamax search algorithm for the provided position to the desired depth
     """
 
-    best_evaluation = -math.inf if is_whites_move else math.inf
+    if deadline is not None and time.monotonic() >= deadline:
+        return static_eval(player_bbs, opposition_bbs, is_whites_move), ()
+
+    if draw_by_insufficient_material(player_bbs, opposition_bbs):
+        return 0, ()
+
+    # Draw by 50-move rule
+    if halfmove_clock >= 100:
+        return 0, ()
+
+    legal_moves = find_legal_moves(
+        player_bbs,
+        opposition_bbs,
+        is_whites_move,
+        castling_rights,
+        en_passant_temp_idx,
+        en_passant_real_idx,
+        halfmove_clock,
+    )
+
+    # No legal moves, so a mate has occurred
+    if not legal_moves:
+        king_square = player_bbs[5].bit_length() - 1
+        o_piece_captures, o_king_moves, _, _ = find_pseudo_legal_moves(
+            opposition_bbs, player_bbs, not is_whites_move, castling_rights, en_passant_temp_idx
+        )
+
+        if in_check(king_square, o_piece_captures + o_king_moves):
+            return -CHECKMATE_VALUE, ()
+
+        return 0, ()  # stalemate
+
+    if depth == 0:
+        return static_eval(player_bbs, opposition_bbs, is_whites_move), ()
+
     best_move = ()
+    best_score = -math.inf
 
     for move in legal_moves:
-        if deadline is not None and time.monotonic() >= deadline:
-            break
-
-        current_eval = None
-
-        player_bbs = white_bbs if is_whites_move else black_bbs
-        opposition_bbs = black_bbs if is_whites_move else white_bbs
-
         (
             new_player_bbs,
             new_opposition_bbs,
@@ -261,7 +300,7 @@ def evaluate_position(
             is_whites_move,
         )
 
-        opposition_legal_moves = find_legal_moves(
+        child_score, _ = negamax(
             new_opposition_bbs,
             new_player_bbs,
             not is_whites_move,
@@ -269,54 +308,58 @@ def evaluate_position(
             new_en_passant_temp_idx,
             new_en_passant_real_idx,
             new_halfmove_clock,
+            -beta,
+            -alpha,
+            depth - 1,
+            deadline,
         )
+        score = -child_score
 
-        # Move results in a mate
-        if not opposition_legal_moves:
-            piece_capturing_moves, king_moves, _, _ = find_pseudo_legal_moves(
-                new_player_bbs,
-                new_opposition_bbs,
-                is_whites_move,
-                new_castling_rights,
-                new_en_passant_temp_idx,
-            )
-            king_bb = new_opposition_bbs[5]
-            king_square = king_bb.bit_length() - 1
-
-            # Checkmate, so return move as it is always the best
-            if in_check(king_square, piece_capturing_moves + king_moves):
-                best_evaluation = CHECKMATE_VALUE if is_whites_move else -CHECKMATE_VALUE
-                best_move = move
-                break
-
-            # Stalemate, so evaluation is 0 at worst
-            current_eval = 0
-
-        # Move results in a draw by insufficient material
-        if draw_by_insufficient_material(new_player_bbs, new_opposition_bbs):
-            current_eval = 0
-
-        # Check for threefold repetition with transposition table
-
-        # Move results in a draw by 50-move rule
-        if new_halfmove_clock >= 100:
-            current_eval = 0
-
-        # Compare pesto evaluation to 0 (if the move results in an draw)
-        white_bbs_ref = new_player_bbs if is_whites_move else new_opposition_bbs
-        black_bbs_ref = new_opposition_bbs if is_whites_move else new_player_bbs
-        pesto_eval = pesto_evaluation(white_bbs_ref, black_bbs_ref)
-        if current_eval is not None:
-            evaluation = (
-                max(pesto_eval, current_eval) if is_whites_move else min(pesto_eval, current_eval)
-            )
-        else:
-            evaluation = pesto_eval
-
-        if (evaluation > best_evaluation and is_whites_move) or (
-            evaluation < best_evaluation and not is_whites_move
-        ):
-            best_evaluation = evaluation
+        if score > best_score:
+            best_score = score
             best_move = move
 
-    return best_evaluation, best_move
+            if (score > alpha):
+                alpha = score
+
+        if (score >= beta):
+            break
+
+    return best_score, best_move
+
+
+def evaluate_position(
+    white_bbs,
+    black_bbs,
+    is_whites_move,
+    en_passant_temp_idx,
+    en_passant_real_idx,
+    castling_rights,
+    halfmove_clock,
+    depth=3,
+    deadline=None,
+):
+    """
+    Returns an evaluation of the the specified board position from the
+    point of view of white, as well as the best move
+    """
+
+    player_bbs = white_bbs if is_whites_move else black_bbs
+    opposition_bbs = black_bbs if is_whites_move else white_bbs
+
+    best_eval, best_move = negamax(
+        player_bbs,
+        opposition_bbs,
+        is_whites_move,
+        castling_rights,
+        en_passant_temp_idx,
+        en_passant_real_idx,
+        halfmove_clock,
+        alpha=-math.inf,
+        beta=math.inf,
+        depth=depth,
+        deadline=deadline,
+    )
+    true_eval = best_eval if is_whites_move else -best_eval
+
+    return true_eval, best_move

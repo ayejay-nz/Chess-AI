@@ -131,13 +131,12 @@ def get_move(pawn_bbs):
     return start_idx, end_idx, promotion_piece
 
 
-def get_computer_move(legal_moves, white_bbs, black_bbs):
+def get_computer_move(white_bbs, black_bbs):
     """
     Generate a move for the computer to make
     """
 
     evaluation, move = evaluate_position(
-        legal_moves,
         white_bbs,
         black_bbs,
         gamestate.is_whites_move,
@@ -145,7 +144,6 @@ def get_computer_move(legal_moves, white_bbs, black_bbs):
         gamestate.real_pawn_idx,
         gamestate.castling_rights,
         gamestate.halfmove_clock,
-        gamestate.position_counts,
     )
 
     print(f"Evaluation: {evaluation}")
@@ -274,7 +272,7 @@ def main():
                     gamestate.is_whites_move = not gamestate.is_whites_move
                     is_users_move = False
         else:
-            computer_move = get_computer_move(legal_moves, white_bbs_ref, black_bbs_ref)
+            computer_move = get_computer_move(white_bbs_ref, black_bbs_ref)
             computer_bbs, user_bbs = apply_real_move(computer_bbs, user_bbs, computer_move)
 
             gamestate.is_whites_move = not gamestate.is_whites_move
