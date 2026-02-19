@@ -236,6 +236,7 @@ def negamax(
     halfmove_clock,
     alpha,
     beta,
+    ply=0,
     depth=3,
     deadline=None,
 ):
@@ -271,7 +272,7 @@ def negamax(
         )
 
         if in_check(king_square, o_piece_captures + o_king_moves):
-            return -CHECKMATE_VALUE, ()
+            return -CHECKMATE_VALUE + ply, ()
 
         return 0, ()  # stalemate
 
@@ -310,6 +311,7 @@ def negamax(
             new_halfmove_clock,
             -beta,
             -alpha,
+            ply + 1,
             depth - 1,
             deadline,
         )
