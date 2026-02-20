@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _ACTIVE_PROFILER = None
+ENABLE_PROFILING = False
 
 # Number of previous profiler iterations to show in the report table.
 PROFILE_COMPARE_PREVIOUS = 3
@@ -18,6 +19,10 @@ PROFILE_HISTORY_MAX_ENTRIES = 1000
 
 @contextmanager
 def active_profiler(profiler):
+    if not ENABLE_PROFILING or profiler is None:
+        yield
+        return
+
     global _ACTIVE_PROFILER
     previous = _ACTIVE_PROFILER
     _ACTIVE_PROFILER = profiler
@@ -28,18 +33,18 @@ def active_profiler(profiler):
 
 
 def timed_call(label, fn, *args, **kwargs):
-    if _ACTIVE_PROFILER is None:
+    if not ENABLE_PROFILING or _ACTIVE_PROFILER is None:
         return fn(*args, **kwargs)
     return _ACTIVE_PROFILER.timed_call(label, fn, *args, **kwargs)
 
 
 def add_time(label, elapsed_s):
-    if _ACTIVE_PROFILER is not None:
+    if ENABLE_PROFILING and _ACTIVE_PROFILER is not None:
         _ACTIVE_PROFILER.add_time(label, elapsed_s)
 
 
 def bump_node():
-    if _ACTIVE_PROFILER is not None:
+    if ENABLE_PROFILING and _ACTIVE_PROFILER is not None:
         _ACTIVE_PROFILER.bump_node()
 
 
@@ -50,6 +55,9 @@ def profiled(label=None):
     """
 
     def decorator(fn):
+        if not ENABLE_PROFILING:
+            return fn
+
         metric_label = label or fn.__name__
 
         @functools.wraps(fn)
@@ -84,7 +92,7 @@ class SearchProfiler:
         self.max_times[label] = max(self.max_times.get(label, 0.0), elapsed_s)
 
     def timed_call(self, label, fn, *args, **kwargs):
-        if not self.enabled:
+        if not ENABLE_PROFILING or not self.enabled:
             return fn(*args, **kwargs)
         start = time.perf_counter()
         try:
@@ -93,7 +101,7 @@ class SearchProfiler:
             self.add_time(label, time.perf_counter() - start)
 
     def bump_node(self):
-        if self.enabled:
+        if ENABLE_PROFILING and self.enabled:
             self.nodes += 1
 
     def reset(self):
@@ -239,7 +247,7 @@ class SearchProfiler:
         return list(reversed(matching[-compare_count:]))
 
     def print_report(self, total_time_s, depth, move_number=None):
-        if not self.enabled:
+        if not ENABLE_PROFILING or not self.enabled:
             return
 
         nps = int(self.nodes / total_time_s) if total_time_s > 0 else 0
