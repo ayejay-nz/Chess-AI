@@ -107,7 +107,6 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         if move_square < 0 or move_square > 63:
             return moves
 
-        all_bbs = player_bbs + opposition_bbs
         cannot_single_move = is_occupied_index(all_bbs, move_square)
 
         if cannot_single_move:
@@ -138,6 +137,7 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         moves.append((square, move_square, None))
         return moves
 
+    all_bbs = player_bbs + opposition_bbs
     pawn_bb = player_bbs[0]
 
     pawn_capture_moves = [7, 9] if is_whites_move else [-7, -9]
@@ -363,6 +363,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     else:
         k_rights, q_rights = BK_rights, BQ_rights
 
+    all_bbs = player_bbs + opposition_bbs
     # check kingside castling
     if kingside_free and k_rights:
         # check rook exists
@@ -370,7 +371,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
         rook_exists = is_occupied_index([player_bbs[1]], rook_square)
 
         move_square = square + k_step
-        if not is_occupied_index(player_bbs + opposition_bbs, move_square) and rook_exists:
+        if not is_occupied_index(all_bbs, move_square) and rook_exists:
             castling_moves.append((square, move_square, None))
 
     # check queenside castling
@@ -381,7 +382,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
 
         move_square = square + q_step
         if (
-            not is_occupied_index(player_bbs + opposition_bbs, move_square)
+            not is_occupied_index(all_bbs, move_square)
             and not is_occupied_index(player_bbs + opposition_bbs, move_square + q_extra)
             and rook_exists
         ):
