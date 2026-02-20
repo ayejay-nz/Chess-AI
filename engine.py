@@ -240,11 +240,50 @@ def negamax(
     beta,
     ply=0,
     depth=3,
+    pv_move=None,
     deadline=None,
 ):
     """
     Negamax search algorithm for the provided position to the desired depth
     """
+
+    def _search_child(move):
+        (
+            new_player_bbs,
+            new_opposition_bbs,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+            new_halfmove_clock,
+            new_castling_rights,
+        ) = apply_move(
+            player_bbs,
+            opposition_bbs,
+            move,
+            en_passant_temp_idx,
+            en_passant_real_idx,
+            halfmove_clock,
+            castling_rights,
+            is_whites_move,
+        )
+
+        child_score, _ = negamax(
+            new_opposition_bbs,
+            new_player_bbs,
+            not is_whites_move,
+            new_castling_rights,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+            new_halfmove_clock,
+            -beta,
+            -alpha,
+            ply + 1,
+            depth - 1,
+            None,
+            deadline,
+        )
+
+        return -child_score
+
 
     if deadline is not None and time.monotonic() >= deadline:
         return static_eval(player_bbs, opposition_bbs, is_whites_move), ()
@@ -280,41 +319,25 @@ def negamax(
     best_move = ()
     best_score = -math.inf
 
-    for move in legal_moves:
-        (
-            new_player_bbs,
-            new_opposition_bbs,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-            new_halfmove_clock,
-            new_castling_rights,
-        ) = apply_move(
-            player_bbs,
-            opposition_bbs,
-            move,
-            en_passant_temp_idx,
-            en_passant_real_idx,
-            halfmove_clock,
-            castling_rights,
-            is_whites_move,
-        )
+    # Search previous best move first
+    ordered_moves = legal_moves
+    if pv_move and pv_move in legal_moves:
+        score = _search_child(pv_move)
+        if score > best_score:
+            best_score = score
+            best_move = pv_move
 
-        child_score, _ = negamax(
-            new_opposition_bbs,
-            new_player_bbs,
-            not is_whites_move,
-            new_castling_rights,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-            new_halfmove_clock,
-            -beta,
-            -alpha,
-            ply + 1,
-            depth - 1,
-            deadline,
-        )
-        score = -child_score
+            if score > alpha:
+                alpha = score
 
+        if score >= beta:
+            best_score, best_move
+
+    for move in ordered_moves:
+        if move == pv_move:
+            continue
+
+        score = _search_child(move)
         if score > best_score:
             best_score = score
             best_move = move
@@ -348,21 +371,34 @@ def evaluate_position(
     player_bbs = white_bbs if is_whites_move else black_bbs
     opposition_bbs = black_bbs if is_whites_move else white_bbs
 
-    profiler_context = active_profiler(profiler) if profiler is not None else nullcontext()
-    with profiler_context:
-        best_eval, best_move = negamax(
-            player_bbs,
-            opposition_bbs,
-            is_whites_move,
-            castling_rights,
-            en_passant_temp_idx,
-            en_passant_real_idx,
-            halfmove_clock,
-            alpha=-math.inf,
-            beta=math.inf,
-            depth=depth,
-            deadline=deadline,
-        )
-    true_eval = best_eval if is_whites_move else -best_eval
+    best_move = ()
+    best_eval = 0
 
+    for d in range(1, depth + 1):
+        if deadline and time.monotonic() >= deadline:
+            break
+
+        profiler_context = active_profiler(profiler) if profiler is not None else nullcontext()
+        with profiler_context:
+            eval_d, move_d = negamax(
+                player_bbs,
+                opposition_bbs,
+                is_whites_move,
+                castling_rights,
+                en_passant_temp_idx,
+                en_passant_real_idx,
+                halfmove_clock,
+                alpha=-math.inf,
+                beta=math.inf,
+                depth=d,
+                pv_move=best_move,
+                deadline=deadline,
+            )
+
+        if move_d:
+            best_eval, best_move = eval_d, move_d
+        else:
+            break
+
+    true_eval = best_eval if is_whites_move else -best_eval
     return true_eval, best_move
