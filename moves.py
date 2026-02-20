@@ -1,7 +1,9 @@
 from gamestate import ROOK_START_RIGHTS, WK, WQ, BK, BQ
+from profiler import profiled
 from utils import piece_to_bitboard_index, get_rank, get_file
 
 
+@profiled()
 def is_occupied_index(bitboards, square_index):
     """
     Check if a square is occupied by a piece given a set of bitboards
@@ -19,6 +21,7 @@ def is_occupied_index(bitboards, square_index):
     return False
 
 
+@profiled()
 def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
     """
     Walk one direction until blocked or reached edge of the board and return all valid moves
@@ -46,6 +49,7 @@ def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
     return moves
 
 
+@profiled()
 def get_castling_rights(castling_rights):
     """
     Returns a tuple of booleans of the current castling rights
@@ -61,6 +65,7 @@ def get_castling_rights(castling_rights):
     )
 
 
+@profiled()
 def is_on_promotion_rank(rank, is_whites_move):
     """
     Checks if a specified rank is the promotion rank for the specified colour
@@ -69,6 +74,7 @@ def is_on_promotion_rank(rank, is_whites_move):
     return rank == 7 if is_whites_move else rank == 0
 
 
+@profiled()
 def get_promotion_moves(start_square, end_square):
     """
     Returns a list of all four possible promotion moves
@@ -82,6 +88,7 @@ def get_promotion_moves(start_square, end_square):
     ]
 
 
+@profiled()
 def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx):
     """
     Find possible pawn moves
@@ -171,6 +178,7 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
     return (capture_moves, moves)
 
 
+@profiled()
 def find_rook_moves(player_bbs, opposition_bbs):
     """
     Find possible rook moves
@@ -197,6 +205,7 @@ def find_rook_moves(player_bbs, opposition_bbs):
     return moves
 
 
+@profiled()
 def find_knight_moves(player_bbs):
     """
     Find possible knight moves
@@ -236,6 +245,7 @@ def find_knight_moves(player_bbs):
     return moves
 
 
+@profiled()
 def find_bishop_moves(player_bbs, opposition_bbs):
     """
     Find possible bishop moves
@@ -262,6 +272,7 @@ def find_bishop_moves(player_bbs, opposition_bbs):
     return moves
 
 
+@profiled()
 def find_queen_moves(player_bbs, opposition_bbs):
     """
     Find possible queen moves
@@ -292,6 +303,7 @@ def find_queen_moves(player_bbs, opposition_bbs):
     return moves
 
 
+@profiled()
 def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights):
     """
     Find possible king moves
@@ -373,6 +385,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     return moves, castling_moves
 
 
+@profiled()
 def in_check(king_square, opposition_moves):
     """
     Check if the opponents pieces can attack the king
@@ -381,6 +394,7 @@ def in_check(king_square, opposition_moves):
     return any(sq == king_square for _, sq, _ in opposition_moves)
 
 
+@profiled()
 def filter_legal_moves(
     pseudo_legal_moves,
     player_bbs,
@@ -479,6 +493,7 @@ def filter_legal_moves(
     return legal_moves
 
 
+@profiled()
 def is_promotion_square(end_idx, is_whites_move):
     """
     Detects if a square is a promotion square for a players pawn
@@ -487,6 +502,7 @@ def is_promotion_square(end_idx, is_whites_move):
     return (is_whites_move and end_idx >= 56) or (not is_whites_move and end_idx <= 7)
 
 
+@profiled()
 def apply_move(
     player_bbs,
     opposition_bbs,
@@ -589,6 +605,7 @@ def apply_move(
     )
 
 
+@profiled()
 def find_pseudo_legal_moves(
     player_bbs, opposition_bbs, is_whites_move, castling_rights, en_passant_temp_idx
 ):
@@ -616,6 +633,7 @@ def find_pseudo_legal_moves(
     return piece_capturing_moves, king_moves, castling_moves, pawn_moves
 
 
+@profiled()
 def find_legal_moves(
     player_bbs,
     opposition_bbs,

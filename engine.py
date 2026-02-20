@@ -1,8 +1,10 @@
 import math
 import time
+from contextlib import nullcontext
 
 from game import draw_by_insufficient_material, set_position_count
 from moves import apply_move, find_legal_moves, find_pseudo_legal_moves, in_check
+from profiler import active_profiler
 
 CHECKMATE_VALUE = 32000
 
@@ -338,8 +340,9 @@ def evaluate_position(
     en_passant_real_idx,
     castling_rights,
     halfmove_clock,
-    depth=3,
+    depth=4,
     deadline=None,
+    profiler=None,
 ):
     """
     Returns an evaluation of the the specified board position from the
@@ -349,19 +352,21 @@ def evaluate_position(
     player_bbs = white_bbs if is_whites_move else black_bbs
     opposition_bbs = black_bbs if is_whites_move else white_bbs
 
-    best_eval, best_move = negamax(
-        player_bbs,
-        opposition_bbs,
-        is_whites_move,
-        castling_rights,
-        en_passant_temp_idx,
-        en_passant_real_idx,
-        halfmove_clock,
-        alpha=-math.inf,
-        beta=math.inf,
-        depth=depth,
-        deadline=deadline,
-    )
+    profiler_context = active_profiler(profiler) if profiler is not None else nullcontext()
+    with profiler_context:
+        best_eval, best_move = negamax(
+            player_bbs,
+            opposition_bbs,
+            is_whites_move,
+            castling_rights,
+            en_passant_temp_idx,
+            en_passant_real_idx,
+            halfmove_clock,
+            alpha=-math.inf,
+            beta=math.inf,
+            depth=depth,
+            deadline=deadline,
+        )
     true_eval = best_eval if is_whites_move else -best_eval
 
     return true_eval, best_move

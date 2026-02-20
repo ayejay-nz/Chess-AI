@@ -1,6 +1,8 @@
+import os
 import re
 import random
 import math
+import time
 
 import gamestate
 
@@ -8,6 +10,15 @@ from game import draw_by_insufficient_material, game_over_status, update_repetit
 from moves import apply_move, find_legal_moves
 from utils import get_rank, output_boardstate
 from engine import evaluate_position
+from profiler import SearchProfiler
+
+
+PROFILE_FIND_LEGAL_MOVES = os.getenv("CHESSAI_PROFILE_LEGAL_MOVES", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def rank_to_row(raw_row, rank):
@@ -136,6 +147,9 @@ def get_computer_move(white_bbs, black_bbs):
     Generate a move for the computer to make
     """
 
+    profiler = SearchProfiler(enabled=True) if PROFILE_FIND_LEGAL_MOVES else None
+    start_time = time.perf_counter() if PROFILE_FIND_LEGAL_MOVES else 0.0
+
     evaluation, move = evaluate_position(
         white_bbs,
         black_bbs,
@@ -144,9 +158,13 @@ def get_computer_move(white_bbs, black_bbs):
         gamestate.real_pawn_idx,
         gamestate.castling_rights,
         gamestate.halfmove_clock,
+        profiler=profiler,
     )
 
     print(f"Evaluation: {evaluation}")
+
+    if PROFILE_FIND_LEGAL_MOVES and profiler is not None:
+        profiler.print_report(time.perf_counter() - start_time, depth="default")
 
     return move
 
