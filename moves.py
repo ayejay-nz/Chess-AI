@@ -94,6 +94,7 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
     Find possible pawn moves
     """
 
+    @profiled()
     def can_forward_move(square, rank):
         """
         Check if a pawn can do a regular or double forward move, and returns whichever ones it can do
@@ -106,19 +107,20 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         if move_square < 0 or move_square > 63:
             return moves
 
-        can_single_move = not is_occupied_index(player_bbs + opposition_bbs, move_square)
+        all_bbs = player_bbs + opposition_bbs
+        cannot_single_move = is_occupied_index(all_bbs, move_square)
 
-        if not can_single_move:
+        if cannot_single_move:
             return moves
 
         # Four possible promotions
-        move_rank = get_rank(move_square)
+        move_rank = rank + 1 if is_whites_move else rank - 1
         if is_on_promotion_rank(move_rank, is_whites_move):
             promotion_moves = get_promotion_moves(square, move_square)
             moves.extend(promotion_moves)
             return moves
-        else:
-            moves.append((square, move_square, None))
+
+        moves.append((square, move_square, None))
 
         # Check if a pawn can double move forward
         move_square = square + 16 if is_whites_move else square - 16
@@ -128,9 +130,9 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         if not on_home_row:
             return moves
 
-        can_double_move = not is_occupied_index(player_bbs + opposition_bbs, move_square)
+        cannot_double_move = is_occupied_index(all_bbs, move_square)
 
-        if not can_double_move:
+        if cannot_double_move:
             return moves
 
         moves.append((square, move_square, None))
@@ -153,7 +155,8 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         for move in pawn_capture_moves:
             move_square = square + move
             if move_square < 0 or move_square > 63:
-                continue
+                # If the first capturing move is out of bounds, the second one must also be, so break
+                break
 
             move_rank = get_rank(move_square)
 
@@ -169,13 +172,15 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
                 else:
                     capture_moves.append((square, move_square, None))
 
+                continue  # skip en passant check
+
             # En passant
             if move_square == en_passant_temp_idx:
                 capture_moves.append((square, move_square, None))
 
         pawn_bb ^= lsb
 
-    return (capture_moves, moves)
+    return capture_moves, moves
 
 
 @profiled()
@@ -411,6 +416,7 @@ def filter_legal_moves(
 
     legal_moves = []
 
+    @profiled()
     def filter_moves(moves):
         """
         Find all moves from a set of moves which result in the king not being in check
