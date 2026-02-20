@@ -104,7 +104,7 @@ def has_legal_ep_capture(pawn_bb, legal_moves, en_passant_temp_idx):
     for start_square, end_square, _ in legal_moves:
         if end_square != en_passant_temp_idx:
             continue
-        if not (2**start_square & pawn_bb):
+        if not (1 << start_square & pawn_bb):
             continue
         if abs(get_file(start_square) - ep_file) == 1:
             return True

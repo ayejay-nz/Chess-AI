@@ -519,7 +519,7 @@ def apply_move(
 
     start_idx, end_idx, promotion_piece = move
     move_delta = end_idx - start_idx
-    start_square, end_square = 2**start_idx, 2**end_idx
+    start_square, end_square = 1 << start_idx, 1 << end_idx
 
     new_player = player_bbs[:]
     new_opposition = opposition_bbs[:]
@@ -550,8 +550,8 @@ def apply_move(
                         rook_idx = start_idx - 4
                         rook_end_idx = rook_idx + 3
 
-                    rook_end_square = 2**rook_end_idx
-                    rook_square = 2**rook_idx
+                    rook_end_square = 1 << rook_end_idx
+                    rook_square = 1 << rook_idx
 
                     new_player[1] = new_player[1] ^ rook_square  # Remove the castled rook
                     new_player[1] = new_player[1] ^ rook_end_square  # Place the castled rook
@@ -593,7 +593,7 @@ def apply_move(
 
         # Remove en passanted pawn
         if idx == 0 and moved_piece_idx == 0 and end_idx == en_passant_temp_idx:
-            new_opposition[0] = new_opposition[0] ^ 2**en_passant_real_idx
+            new_opposition[0] = new_opposition[0] ^ (1 << en_passant_real_idx)
 
     return (
         new_player,

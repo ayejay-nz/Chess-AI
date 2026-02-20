@@ -101,7 +101,7 @@ def is_promotion_move(start_idx, end_idx, pawn_bb):
     Check if a user entered move is a promotion move
     """
 
-    start_square = 2**start_idx
+    start_square = 1 << start_idx
 
     # User is moving a pawn to final rank
     if start_square & pawn_bb:
