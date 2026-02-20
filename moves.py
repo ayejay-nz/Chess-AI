@@ -640,6 +640,108 @@ def find_pseudo_legal_moves(
 
 
 @profiled()
+def is_square_attacked(target, attacker_bbs, defender_bbs, attacker_is_white):
+    """
+    A function that checks if a square is attacked from a players set of bitboards
+    """
+
+    def _hit(src):
+        """
+        Check if a provided square is on the board and is a pawn
+        """
+
+        return 0 <= src <= 63 and ((1 << src) & pawn_bb)
+
+    def _ray_attacked(dr, df, attackers, all_occupied):
+        """
+        Check if target is attacked by a ray specified by dr and df
+        """
+
+        rank, file = target_rank + dr, target_file + df
+        while 0 <= rank <= 7 and 0 <= file <= 7:
+            square = 8 * rank + file
+            bit = 1 << square
+
+            # first blocker of the ray
+            if bit & all_occupied:
+                return bool(bit & attackers)
+
+            rank += dr
+            file += df
+
+        return False
+
+    target_file = get_file(target)
+    target_rank = get_rank(target)
+
+    pawn_bb, rook_bb, knight_bb, bishop_bb, queen_bb, king_bb = attacker_bbs
+
+    occupied = 0
+    for bb in attacker_bbs:
+        occupied |= bb
+    for bb in defender_bbs:
+        occupied |= bb
+
+    # Check if a pawn attacks the target
+    if attacker_is_white:
+        if target_file != 0 and _hit(target - 9):
+            return True
+        if target_file != 7 and _hit(target - 7):
+            return True
+    else:
+        if target_file != 0 and _hit(target + 7):
+            return True
+        if target_file != 7 and _hit(target + 9):
+            return True
+
+    # Check if a knight attacks the target
+    knight_moves = [(2, -1), (2, 1), (1, 2), (1, -2), (-2, 1), (-2, -1), (-1, -2), (-1, 2)]
+    for df, dr in knight_moves:
+        move_file = target_file + df
+        move_rank = target_rank + dr
+        if move_file < 0 or move_file > 7 or move_rank < 0 or move_rank > 7:
+            continue
+
+        move_square = 8 * move_rank + move_file
+        if knight_bb & (1 << move_square):
+            return True
+
+    # Check if a king attacks the target
+    king_moves = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
+    for df, dr in king_moves:
+        move_file = target_file + df
+        move_rank = target_rank + dr
+        if move_file < 0 or move_file > 7 or move_rank < 0 or move_rank > 7:
+            continue
+
+        move_square = 8 * move_rank + move_file
+        if king_bb & (1 << move_square):
+            return True
+
+    # Check if a bishop/queen diagonal attacks the target
+    attacking_bbs = bishop_bb | queen_bb
+    if (
+        _ray_attacked(1, 1, attacking_bbs, occupied)
+        or _ray_attacked(1, -1, attacking_bbs, occupied)
+        or _ray_attacked(-1, -1, attacking_bbs, occupied)
+        or _ray_attacked(-1, 1, attacking_bbs, occupied)
+    ):
+        return True
+
+    # Check if a rook/queen horizontal/vertical attacks the target
+    attacking_bbs = rook_bb | queen_bb
+    if (
+        _ray_attacked(1, 0, attacking_bbs, occupied)
+        or _ray_attacked(-1, 0, attacking_bbs, occupied)
+        or _ray_attacked(0, -1, attacking_bbs, occupied)
+        or _ray_attacked(0, 1, attacking_bbs, occupied)
+    ):
+        return True
+
+    return False
+
+
+@profiled()
 def find_legal_moves(
     player_bbs,
     opposition_bbs,
