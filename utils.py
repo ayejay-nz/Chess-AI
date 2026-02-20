@@ -55,7 +55,7 @@ def get_rank(square):
     Get a squares rank (0-7) from its index
     """
 
-    return square // 8
+    return square >> 3
 
 
 def get_file(square):
@@ -63,7 +63,7 @@ def get_file(square):
     Get a squares file (0-7) from its index
     """
 
-    return square % 8
+    return square & 7
 
 
 def piece_to_bitboard_index(piece_str):

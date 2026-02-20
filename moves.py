@@ -662,8 +662,8 @@ def is_square_attacked(target, attacker_bbs, defender_bbs, attacker_is_white):
 
         return False
 
-    target_file = get_file(target)
-    target_rank = get_rank(target)
+    target_file = target & 7
+    target_rank = target >> 3
 
     pawn_bb, rook_bb, knight_bb, bishop_bb, queen_bb, king_bb = attacker_bbs
 
