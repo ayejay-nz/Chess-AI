@@ -158,7 +158,7 @@ class SearchProfiler:
         except OSError:
             return
 
-    def _snapshot(self, total_time_s, depth, rows):
+    def _snapshot(self, total_time_s, depth, rows, move_number=None):
         nps = int(self.nodes / total_time_s) if total_time_s > 0 else 0
         functions = {}
 
@@ -170,7 +170,7 @@ class SearchProfiler:
                 "max_ms": row["max_s"] * 1000.0,
             }
 
-        return {
+        snapshot = {
             "timestamp": int(time.time()),
             "depth": str(depth),
             "nodes": self.nodes,
@@ -178,6 +178,11 @@ class SearchProfiler:
             "total_ms": total_time_s * 1000.0,
             "functions": functions,
         }
+
+        if move_number is not None:
+            snapshot["move_number"] = move_number
+
+        return snapshot
 
     @staticmethod
     def _compare_count():
@@ -205,13 +210,43 @@ class SearchProfiler:
 
         return f"{value:.3f}"
 
-    def print_report(self, total_time_s, depth):
+    @staticmethod
+    def _as_int(value):
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _select_previous_entries(self, history, compare_count, move_number):
+        if compare_count <= 0:
+            return []
+
+        if move_number is None:
+            selected = history[-compare_count:]
+            return list(reversed(selected))
+
+        expected = self._as_int(move_number)
+        if expected is None:
+            selected = history[-compare_count:]
+            return list(reversed(selected))
+
+        matching = []
+        for entry in history:
+            if not isinstance(entry, dict):
+                continue
+            if self._as_int(entry.get("move_number")) == expected:
+                matching.append(entry)
+
+        return list(reversed(matching[-compare_count:]))
+
+    def print_report(self, total_time_s, depth, move_number=None):
         if not self.enabled:
             return
 
         nps = int(self.nodes / total_time_s) if total_time_s > 0 else 0
+        move_suffix = f" move={move_number}" if move_number is not None else ""
         print(
-            f"[PROFILE] total={total_time_s:.4f}s depth={depth} nodes={self.nodes} nps={nps}",
+            f"[PROFILE] total={total_time_s:.4f}s depth={depth} nodes={self.nodes} nps={nps}{move_suffix}",
             flush=True,
         )
         rows = self.get_stats()
@@ -221,7 +256,7 @@ class SearchProfiler:
 
         history = self._load_history()
         compare_count = self._compare_count()
-        previous_entries = list(reversed(history[-compare_count:])) if compare_count else []
+        previous_entries = self._select_previous_entries(history, compare_count, move_number)
         while len(previous_entries) < compare_count:
             previous_entries.append(None)
 
@@ -269,7 +304,7 @@ class SearchProfiler:
             print(f"[PROFILE] {render_line(row)}", flush=True)
         print(f"[PROFILE] {separator}", flush=True)
 
-        snapshot = self._snapshot(total_time_s, depth, rows)
+        snapshot = self._snapshot(total_time_s, depth, rows, move_number=move_number)
         history.append(snapshot)
 
         if PROFILE_HISTORY_MAX_ENTRIES > 0 and len(history) > PROFILE_HISTORY_MAX_ENTRIES:

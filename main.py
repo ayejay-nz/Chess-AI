@@ -142,7 +142,7 @@ def get_move(pawn_bbs):
     return start_idx, end_idx, promotion_piece
 
 
-def get_computer_move(white_bbs, black_bbs):
+def get_computer_move(white_bbs, black_bbs, engine_move_number=None):
     """
     Generate a move for the computer to make
     """
@@ -164,7 +164,11 @@ def get_computer_move(white_bbs, black_bbs):
     print(f"Evaluation: {evaluation}")
 
     if PROFILE_FIND_LEGAL_MOVES and profiler is not None:
-        profiler.print_report(time.perf_counter() - start_time, depth="default")
+        profiler.print_report(
+            time.perf_counter() - start_time,
+            depth="default",
+            move_number=engine_move_number,
+        )
 
     return move
 
@@ -216,6 +220,7 @@ def main():
     computer_bbs = black_bbs if gamestate.is_playing_white else white_bbs
 
     is_users_move = gamestate.is_playing_white and gamestate.is_whites_move
+    engine_move_number = 0
 
     while True:
         output_boardstate(user_bbs, computer_bbs)
@@ -290,7 +295,12 @@ def main():
                     gamestate.is_whites_move = not gamestate.is_whites_move
                     is_users_move = False
         else:
-            computer_move = get_computer_move(white_bbs_ref, black_bbs_ref)
+            engine_move_number += 1
+            computer_move = get_computer_move(
+                white_bbs_ref,
+                black_bbs_ref,
+                engine_move_number=engine_move_number,
+            )
             computer_bbs, user_bbs = apply_real_move(computer_bbs, user_bbs, computer_move)
 
             gamestate.is_whites_move = not gamestate.is_whites_move
