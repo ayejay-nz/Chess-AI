@@ -70,7 +70,7 @@ def compute_polyglot_key(white_bbs, black_bbs, castling_rights, en_passant_idx, 
     # en passant xor
     players_pawns_bb = white_bbs[0] if is_whites_move else black_bbs[0]
     ep_file = polyglot_ep_file_to_xor(players_pawns_bb, en_passant_idx, is_whites_move)
-    if ep_file:
+    if ep_file is not None:
         key ^= RANDOM64[772 + ep_file]
 
     # turn xor
