@@ -12,7 +12,6 @@ from utils import get_rank, output_boardstate
 from engine import evaluate_position
 from profiler import SearchProfiler
 
-
 PROFILE_FIND_LEGAL_MOVES = os.getenv("CHESSAI_PROFILE_LEGAL_MOVES", "").strip().lower() in {
     "1",
     "true",

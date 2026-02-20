@@ -4,7 +4,6 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-
 _ACTIVE_PROFILER = None
 
 # Number of previous profiler iterations to show in the report table.

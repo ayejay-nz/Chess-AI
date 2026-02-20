@@ -438,16 +438,10 @@ def filter_legal_moves(
             king_bb = new_player_bbs[5]
             king_square = king_bb.bit_length() - 1
 
-            o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(
-                new_opposition_bbs,
-                new_player_bbs,
-                not is_whites_move,
-                castling_rights,
-                new_en_passant_temp_idx,
-            )
-
-            # Move results in check
-            if not in_check(king_square, o_piece_capturing_moves + o_king_moves):
+            # King is not in check so move is legal
+            if not is_square_attacked(
+                king_square, new_opposition_bbs, new_player_bbs, not is_whites_move
+            ):
                 legal_moves.append(move)
 
     piece_moves, king_moves, castling_moves, pawn_moves = pseudo_legal_moves
@@ -470,11 +464,8 @@ def filter_legal_moves(
     # Cannot castle out of check
     king_bb = player_bbs[5]
     king_square = king_bb.bit_length() - 1
-    o_piece_capturing_moves, o_king_moves, _, _ = find_pseudo_legal_moves(
-        opposition_bbs, player_bbs, not is_whites_move, castling_rights, en_passant_temp_idx
-    )
 
-    if in_check(king_square, o_piece_capturing_moves):
+    if is_square_attacked(king_square, opposition_bbs, player_bbs, not is_whites_move):
         return legal_moves
 
     for move in castling_moves:
@@ -486,13 +477,13 @@ def filter_legal_moves(
         if (
             move_delta == 2
             and kingside_clear
-            and not in_check(end_square, o_piece_capturing_moves + o_king_moves)
+            and not is_square_attacked(end_square, opposition_bbs, player_bbs, not is_whites_move)
         ):
             legal_moves.append(move)
         elif (
             move_delta == -2
             and queenside_clear
-            and not in_check(end_square, o_piece_capturing_moves + o_king_moves)
+            and not is_square_attacked(end_square, opposition_bbs, player_bbs, not is_whites_move)
         ):
             legal_moves.append(move)
 

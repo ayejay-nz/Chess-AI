@@ -2,8 +2,8 @@ import math
 import time
 from contextlib import nullcontext
 
-from game import draw_by_insufficient_material, set_position_count
-from moves import apply_move, find_legal_moves, find_pseudo_legal_moves, in_check
+from game import draw_by_insufficient_material
+from moves import apply_move, find_legal_moves, is_square_attacked
 from profiler import active_profiler
 
 CHECKMATE_VALUE = 32000
@@ -269,11 +269,7 @@ def negamax(
     # No legal moves, so a mate has occurred
     if not legal_moves:
         king_square = player_bbs[5].bit_length() - 1
-        o_piece_captures, o_king_moves, _, _ = find_pseudo_legal_moves(
-            opposition_bbs, player_bbs, not is_whites_move, castling_rights, en_passant_temp_idx
-        )
-
-        if in_check(king_square, o_piece_captures + o_king_moves):
+        if is_square_attacked(king_square, opposition_bbs, player_bbs, not is_whites_move):
             return -CHECKMATE_VALUE + ply, ()
 
         return 0, ()  # stalemate
@@ -323,10 +319,10 @@ def negamax(
             best_score = score
             best_move = move
 
-            if (score > alpha):
+            if score > alpha:
                 alpha = score
 
-        if (score >= beta):
+        if score >= beta:
             break
 
     return best_score, best_move
