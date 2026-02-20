@@ -1,5 +1,6 @@
 import sys
 import time
+import inspect
 from dataclasses import dataclass
 
 from engine import evaluate_position
@@ -16,6 +17,22 @@ PIECE_TO_INDEX = {
     "q": 4,
     "k": 5,
 }
+
+
+def resolve_engine_default_depth() -> int:
+    try:
+        depth_default = inspect.signature(evaluate_position).parameters["depth"].default
+    except (TypeError, ValueError, KeyError):
+        return 3
+
+    if isinstance(depth_default, int) and depth_default > 0:
+        return depth_default
+    return 3
+
+
+DEFAULT_UCI_DEPTH = resolve_engine_default_depth()
+LOW_TIME_THRESHOLD_MS = 30_000
+MIN_CLOCK_BUDGET_MS = 10.0
 
 
 @dataclass(frozen=True)
@@ -241,10 +258,11 @@ def make_move(position: Position, move: tuple[int, int, str | None]) -> Position
     )
 
 
-def parse_go_args(command: str, is_whites_move: bool) -> tuple[int | None, float | None]:
+def parse_go_args(command: str, is_whites_move: bool) -> tuple[int, float | None]:
     tokens = command.split()
 
     depth = None
+    has_explicit_depth = False
     movetime_ms = None
     wtime_ms = None
     btime_ms = None
@@ -265,6 +283,7 @@ def parse_go_args(command: str, is_whites_move: bool) -> tuple[int | None, float
 
         if token == "depth":
             depth = read_int(depth)
+            has_explicit_depth = True
             i += 2
             continue
         if token == "movetime":
@@ -290,17 +309,22 @@ def parse_go_args(command: str, is_whites_move: bool) -> tuple[int | None, float
 
         i += 1
 
+    if depth is None or depth <= 0:
+        depth = DEFAULT_UCI_DEPTH
+
     time_limit_s = None
     if movetime_ms is not None:
-        time_limit_s = max(0.0, movetime_ms / 1000.0)
-    elif wtime_ms is not None and btime_ms is not None:
+        # Avoid immediate root timeout for `movetime 0` and tiny values.
+        time_limit_s = max(0.01, movetime_ms / 1000.0)
+    elif not has_explicit_depth and wtime_ms is not None and btime_ms is not None:
         remaining_ms = wtime_ms if is_whites_move else btime_ms
         increment_ms = winc_ms if is_whites_move else binc_ms
 
-        # Conservative budget to avoid losing on time.
-        alloc_ms = min(remaining_ms * 0.04 + increment_ms * 0.6, remaining_ms * 0.7)
-        alloc_ms = max(10.0, alloc_ms)
-        time_limit_s = alloc_ms / 1000.0
+        # Keep behaviour close to terminal mode when there is enough time.
+        if remaining_ms < LOW_TIME_THRESHOLD_MS:
+            alloc_ms = min(increment_ms + remaining_ms * 0.04, remaining_ms * 0.9)
+            alloc_ms = max(MIN_CLOCK_BUDGET_MS, alloc_ms)
+            time_limit_s = alloc_ms / 1000.0
 
     return depth, time_limit_s
 
@@ -314,11 +338,10 @@ def search_best_move(
     if not legal_moves:
         return None
 
-    depth, time_limit_s = parse_go_args(go_command, position.is_whites_move)
+    search_depth, time_limit_s = parse_go_args(go_command, position.is_whites_move)
     deadline = None if time_limit_s is None else time.monotonic() + time_limit_s
 
     best_eval, best_move = evaluate_position(
-        legal_moves,
         position.white_bbs,
         position.black_bbs,
         position.is_whites_move,
@@ -326,19 +349,29 @@ def search_best_move(
         position.en_passant_real_idx,
         position.castling_rights,
         position.halfmove_clock,
-        position_counts,
+        depth=search_depth,
         deadline=deadline,
     )
 
     if not best_move:
-        best_move = legal_moves[0]
-        best_eval = 0.0
-
-    if depth is None:
-        depth = 1
+        # If the clock deadline elapsed before a move was found, force a cheap deterministic search.
+        best_eval, best_move = evaluate_position(
+            position.white_bbs,
+            position.black_bbs,
+            position.is_whites_move,
+            position.en_passant_temp_idx,
+            position.en_passant_real_idx,
+            position.castling_rights,
+            position.halfmove_clock,
+            depth=1,
+            deadline=None,
+        )
+        if not best_move:
+            best_move = legal_moves[0]
+            best_eval = 0.0
 
     cp_score = int(best_eval if position.is_whites_move else -best_eval)
-    print(f"info depth {depth} score cp {cp_score} pv {move_to_uci(best_move)}", flush=True)
+    print(f"info depth {search_depth} score cp {cp_score} pv {move_to_uci(best_move)}", flush=True)
 
     return best_move
 
