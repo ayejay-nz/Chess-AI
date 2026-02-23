@@ -267,7 +267,7 @@ def negamax(
             is_whites_move,
         )
 
-        child_score, _ = negamax(
+        child_score, _, completed = negamax(
             new_opposition_bbs,
             new_player_bbs,
             not is_whites_move,
@@ -283,18 +283,20 @@ def negamax(
             deadline,
         )
 
-        return -child_score
+        if not completed:
+            return 0, False
 
+        return -child_score, True
 
     if deadline is not None and time.monotonic() >= deadline:
-        return static_eval(player_bbs, opposition_bbs, is_whites_move), ()
+        return 0, (), False
 
     if draw_by_insufficient_material(player_bbs, opposition_bbs):
-        return 0, ()
+        return 0, (), True
 
     # Draw by 50-move rule
     if halfmove_clock >= 100:
-        return 0, ()
+        return 0, (), True
 
     legal_moves = find_legal_moves(
         player_bbs,
@@ -310,12 +312,12 @@ def negamax(
     if not legal_moves:
         king_square = player_bbs[5].bit_length() - 1
         if is_square_attacked(king_square, opposition_bbs, player_bbs, not is_whites_move):
-            return -CHECKMATE_VALUE + ply, ()
+            return -CHECKMATE_VALUE + ply, (), True
 
-        return 0, ()  # stalemate
+        return 0, (), True  # stalemate
 
     if depth == 0:
-        return static_eval(player_bbs, opposition_bbs, is_whites_move), ()
+        return static_eval(player_bbs, opposition_bbs, is_whites_move), (), True
 
     best_move = ()
     best_score = -math.inf
@@ -323,7 +325,10 @@ def negamax(
     # Search previous best move first
     ordered_moves = legal_moves
     if pv_move and pv_move in legal_moves:
-        score = _search_child(pv_move)
+        score, completed = _search_child(pv_move)
+        if not completed:
+            return best_score, best_move, False
+
         if score > best_score:
             best_score = score
             best_move = pv_move
@@ -332,13 +337,16 @@ def negamax(
                 alpha = score
 
         if score >= beta:
-            best_score, best_move
+            return best_score, best_move, True
 
     for move in ordered_moves:
         if move == pv_move:
             continue
 
-        score = _search_child(move)
+        score, completed = _search_child(move)
+        if not completed:
+            return best_score, best_move, False
+
         if score > best_score:
             best_score = score
             best_move = move
@@ -349,7 +357,7 @@ def negamax(
         if score >= beta:
             break
 
-    return best_score, best_move
+    return best_score, best_move, True
 
 
 def evaluate_position(
@@ -360,7 +368,7 @@ def evaluate_position(
     en_passant_real_idx,
     castling_rights,
     halfmove_clock,
-    depth=4,
+    depth=10,
     deadline=None,
     profiler=None,
 ):
@@ -398,7 +406,7 @@ def evaluate_position(
 
         profiler_context = active_profiler(profiler) if profiler is not None else nullcontext()
         with profiler_context:
-            eval_d, move_d = negamax(
+            eval_d, move_d, completed_d = negamax(
                 player_bbs,
                 opposition_bbs,
                 is_whites_move,
@@ -412,6 +420,9 @@ def evaluate_position(
                 pv_move=best_move,
                 deadline=deadline,
             )
+
+        if not completed_d:
+            break
 
         if move_d:
             best_eval, best_move = eval_d, move_d
