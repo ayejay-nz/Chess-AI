@@ -1,11 +1,29 @@
 import math
 import time
 from contextlib import nullcontext
+from dataclasses import dataclass
 
 from book import probe_opening_book
 from game import draw_by_insufficient_material
 from moves import apply_move, find_legal_moves, is_square_attacked
 from profiler import active_profiler
+from zobrist import compute_polyglot_key
+
+EXACT, LOWER, UPPER = 0, 1, 2
+
+
+@dataclass
+class TTEntry:
+    key: int
+    best_move: tuple
+    depth: int
+    score: int
+    node_type: int
+    age: int
+
+
+TT = {}
+
 
 CHECKMATE_VALUE = 32000
 
@@ -239,6 +257,7 @@ def negamax(
     halfmove_clock,
     alpha,
     beta,
+    zkey,
     ply=0,
     depth=3,
     pv_move=None,
@@ -267,6 +286,16 @@ def negamax(
             is_whites_move,
         )
 
+        child_white_bbs = new_opposition_bbs if is_whites_move else new_player_bbs
+        child_black_bbs = new_player_bbs if is_whites_move else new_opposition_bbs
+        child_key = compute_polyglot_key(
+            child_white_bbs,
+            child_black_bbs,
+            new_castling_rights,
+            new_en_passant_temp_idx,
+            not is_whites_move,
+        )
+
         child_score, _, completed = negamax(
             new_opposition_bbs,
             new_player_bbs,
@@ -277,6 +306,7 @@ def negamax(
             new_halfmove_clock,
             -beta,
             -alpha,
+            child_key,
             ply + 1,
             depth - 1,
             None,
@@ -288,6 +318,19 @@ def negamax(
 
         return -child_score, True
 
+    def _is_mate_score(s):
+        return abs(s) >= CHECKMATE_VALUE - 1000
+
+    def _store_tt(score, move, node_type):
+        old = TT.get(zkey)
+        if old is None or depth >= old.depth:
+            # Normalise mating ply depth
+            tt_score = score
+            if _is_mate_score(tt_score):
+                tt_score = tt_score + ply if tt_score > 0 else tt_score - ply
+
+            TT[zkey] = TTEntry(zkey, move, depth, tt_score, node_type, halfmove_clock)
+
     if deadline is not None and time.monotonic() >= deadline:
         return 0, (), False
 
@@ -297,6 +340,26 @@ def negamax(
     # Draw by 50-move rule
     if halfmove_clock >= 100:
         return 0, (), True
+
+    alpha_orig = alpha
+    beta_orig = beta
+
+    # Check transposition table
+    entry = TT.get(zkey)
+    if entry is not None and entry.depth >= depth:
+        # Keep mate distance consistent across different depths
+        score = entry.score
+        if _is_mate_score(score):
+            score = score - ply if score > 0 else score + ply
+
+        if entry.node_type == EXACT:
+            return score, entry.best_move, True
+        if entry.node_type == LOWER:
+            alpha = max(alpha, score)
+        if entry.node_type == UPPER:
+            beta = min(beta, score)
+        if alpha >= beta:
+            return score, entry.best_move, True
 
     legal_moves = find_legal_moves(
         player_bbs,
@@ -337,6 +400,7 @@ def negamax(
                 alpha = score
 
         if score >= beta:
+            _store_tt(best_score, best_move, LOWER)
             return best_score, best_move, True
 
     for move in ordered_moves:
@@ -356,6 +420,16 @@ def negamax(
 
         if score >= beta:
             break
+
+    # Set values for transposition table
+    if best_score <= alpha_orig:
+        node_type = UPPER
+    elif best_score >= beta_orig:
+        node_type = LOWER
+    else:
+        node_type = EXACT
+
+    _store_tt(best_score, best_move, node_type)
 
     return best_score, best_move, True
 
@@ -400,6 +474,11 @@ def evaluate_position(
         if book_move in legal_moves:
             return 0, book_move
 
+    # Compute zobrist key for current position
+    zkey = compute_polyglot_key(
+        white_bbs, black_bbs, castling_rights, en_passant_temp_idx, is_whites_move
+    )
+
     for d in range(1, depth + 1):
         if deadline and time.monotonic() >= deadline:
             break
@@ -416,6 +495,7 @@ def evaluate_position(
                 halfmove_clock,
                 alpha=-math.inf,
                 beta=math.inf,
+                zkey=zkey,
                 depth=d,
                 pv_move=best_move,
                 deadline=deadline,
