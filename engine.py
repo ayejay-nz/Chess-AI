@@ -2,6 +2,7 @@ import math
 import time
 from contextlib import nullcontext
 
+from book import probe_opening_book
 from game import draw_by_insufficient_material
 from moves import apply_move, find_legal_moves, is_square_attacked
 from profiler import active_profiler
@@ -373,6 +374,23 @@ def evaluate_position(
 
     best_move = ()
     best_eval = 0
+
+    # Probe opening book for optimal move
+    book_move = probe_opening_book(
+        white_bbs, black_bbs, castling_rights, en_passant_temp_idx, is_whites_move
+    )
+    if book_move:
+        legal_moves = find_legal_moves(
+            player_bbs,
+            opposition_bbs,
+            is_whites_move,
+            castling_rights,
+            en_passant_temp_idx,
+            en_passant_real_idx,
+            halfmove_clock,
+        )
+        if book_move in legal_moves:
+            return 0, book_move
 
     for d in range(1, depth + 1):
         if deadline and time.monotonic() >= deadline:
