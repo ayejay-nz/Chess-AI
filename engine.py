@@ -194,6 +194,15 @@ phase_inc = {
 }
 
 
+MVV_LVV = [
+    [16, 15, 14, 13, 12, 11, 10],  # victim P, attacker P, N, B, R, Q, K
+    [26, 25, 24, 23, 22, 21, 20],  # victim N, attacker P, N, B, R, Q, K
+    [36, 35, 34, 33, 32, 31, 30],  # victim B, attacker P, N, B, R, Q, K
+    [46, 45, 44, 43, 42, 41, 40],  # victim R, attacker P, N, B, R, Q, K
+    [56, 55, 54, 53, 52, 51, 50],  # victim Q, attacker P, N, B, R, Q, K
+]
+
+
 def pesto_evaluation(white_bbs, black_bbs):
     """
     Evaluate the current position using opening/middlegame and endgame piece-square tables,
@@ -245,6 +254,68 @@ def static_eval(player_bbs, opposition_bbs, is_whites_move):
     score_white_pov = pesto_evaluation(white_bbs, black_bbs)
 
     return score_white_pov if is_whites_move else -score_white_pov
+
+
+def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx):
+    """
+    Sort the legal moves according to the MVV-LVA heuristic:
+    - Lookup potential victims of all attacked opponent pieces, most valuable being first
+    - After most valuable is found, find potential aggressors in inverse order (least valuable first)
+    """
+
+    def _is_player_pawn(square):
+        return bool((1 << square) & player_bbs[0])
+
+    def _find_bb_idx(square, bbs, end_square=False):
+        for idx, bb in enumerate(bbs):
+            if (1 << square) & bb:
+                return idx
+            # En passant is the only capture move which can attack the en passant square
+            elif end_square and square == en_passant_temp_idx:
+                return 0
+
+        return None
+
+    def _find_move_mvv_lva_score(capture_move):
+        victim_square = capture_move[1]
+        aggressor_square = capture_move[0]
+
+        victim_idx = _find_bb_idx(victim_square, opposition_bbs, True)
+        aggressor_idx = _find_bb_idx(aggressor_square, player_bbs)
+
+        return MVV_LVV[victim_idx][aggressor_idx]
+
+    capture_moves = []
+    non_capture_moves = []
+
+    occupied_opposition = (
+        opposition_bbs[0]
+        | opposition_bbs[1]
+        | opposition_bbs[2]
+        | opposition_bbs[3]
+        | opposition_bbs[4]
+        | opposition_bbs[5]
+    )
+
+    # Find all legal capturing moves
+    for move in legal_moves:
+        start_square, end_square, _ = move
+        # Capturing an opponent piece
+        if (1 << end_square) & occupied_opposition:
+            capture_moves.append(move)
+        elif _is_player_pawn(start_square) and end_square == en_passant_temp_idx:
+            capture_moves.append(move)
+        else:
+            non_capture_moves.append(move)
+
+    # No legal capture moves
+    if not capture_moves:
+        return non_capture_moves
+
+    # Sort capturing moves according to MVV-LVA
+    capture_moves.sort(key=lambda move: _find_move_mvv_lva_score(move), reverse=True)
+
+    return capture_moves + non_capture_moves
 
 
 def negamax(
@@ -386,7 +457,6 @@ def negamax(
     best_score = -math.inf
 
     # Search previous best move first
-    ordered_moves = legal_moves
     if pv_move and pv_move in legal_moves:
         score, completed = _search_child(pv_move)
         if not completed:
@@ -403,6 +473,8 @@ def negamax(
             _store_tt(best_score, best_move, LOWER)
             return best_score, best_move, True
 
+    # Apply MVV-LVA move ordering
+    ordered_moves = mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx)
     for move in ordered_moves:
         if move == pv_move:
             continue
