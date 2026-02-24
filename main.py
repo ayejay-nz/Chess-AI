@@ -32,7 +32,7 @@ def init_bitboards():
     """
     Initialise bitboards for white and black, returning a tuple of the white and black bitboard array, in that order.
 
-    bb1 = pawns, bb2 = rooks, bb3 = knight, bb4 = bishop, bb5 = queen, bb6 = king
+    bb1 = pawns, bb2 = knights, bb3 = bishops, bb4 = rooks, bb5 = queens, bb6 = king
 
     Bottom left of board (a1) is index 0, incrementing from left to right and down to up, until reaching top right (h8)
     """
@@ -47,18 +47,18 @@ def init_bitboards():
     # Create bitboards for white
     bitboards_white = [
         rank_to_row(pawns_row, 2),
-        rooks_row,
         knights_row,
         bishops_row,
+        rooks_row,
         d_file_bit,
         e_file_bit,
     ]
     # Create bitboards for black
     bitboards_black = [
         rank_to_row(pawns_row, 7),
-        rank_to_row(rooks_row, 8),
         rank_to_row(knights_row, 8),
         rank_to_row(bishops_row, 8),
+        rank_to_row(rooks_row, 8),
         rank_to_row(d_file_bit, 8),
         rank_to_row(e_file_bit, 8),
     ]

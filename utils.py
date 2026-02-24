@@ -10,8 +10,8 @@ def output_boardstate(user_bbs, computer_bbs):
     white_bbs = user_bbs if gamestate.is_playing_white else computer_bbs
     black_bbs = computer_bbs if gamestate.is_playing_white else user_bbs
 
-    black_piece_order = ["♙", "♖", "♘", "♗", "♕", "♔"]
-    white_piece_order = ["♟", "♜", "♞", "♝", "♛", "♚"]
+    black_piece_order = ["♙", "♘", "♗", "♖", "♕", "♔"]
+    white_piece_order = ["♟", "♞", "♝", "♜", "♛", "♚"]
     board = ["."] * 64
 
     for idx, bb in enumerate(white_bbs):
@@ -74,11 +74,11 @@ def piece_to_bitboard_index(piece_str):
     match piece_str:
         case "p":
             return 0
-        case "r":
-            return 1
         case "n":
-            return 2
+            return 1
         case "b":
+            return 2
+        case "r":
             return 3
         case "q":
             return 4

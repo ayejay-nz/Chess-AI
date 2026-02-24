@@ -29,16 +29,16 @@ CHECKMATE_VALUE = 32000
 
 MG_VALUES = {
     0: 82,  # pawn
-    1: 477,  # rook
-    2: 337,  # knight
-    3: 365,  # bishop
+    1: 337,  # knight
+    2: 365,  # bishop
+    3: 477,  # rook
     4: 1025,  # queen
 }
 EG_VALUES = {
     0: 94,  # pawn
-    1: 512,  # rook
-    2: 281,  # knight
-    3: 197,  # bishop
+    1: 281,  # knight
+    2: 197,  # bishop
+    3: 512,  # rook
     4: 936,  # queen
 }
 
@@ -169,17 +169,17 @@ eg_king_table = [
 
 mg_bbs = [
     mg_pawn_table,
-    mg_rook_table,
     mg_knight_table,
     mg_bishop_table,
+    mg_rook_table,
     mg_queen_table,
     mg_king_table,
 ]
 eg_bbs = [
     eg_pawn_table,
-    eg_rook_table,
     eg_knight_table,
     eg_bishop_table,
+    eg_rook_table,
     eg_queen_table,
     eg_king_table,
 ]
@@ -187,9 +187,9 @@ eg_bbs = [
 
 phase_inc = {
     0: 0,  # pawn
-    1: 2,  # rook
-    2: 1,  # knight
-    3: 1,  # bishop
+    1: 1,  # knight
+    2: 1,  # bishop
+    3: 2,  # rook
     4: 4,  # queen
 }
 

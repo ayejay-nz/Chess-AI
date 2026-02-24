@@ -43,12 +43,12 @@ def draw_by_insufficient_material(white_bbs, black_bbs):
     Check if there is insufficient material to continue the game
     """
 
-    white_knight_bb, black_knight_bb = white_bbs[2], black_bbs[2]
-    white_bishop_bb, black_bishop_bb = white_bbs[3], black_bbs[3]
+    white_knight_bb, black_knight_bb = white_bbs[1], black_bbs[1]
+    white_bishop_bb, black_bishop_bb = white_bbs[2], black_bbs[2]
 
     # Sufficient material to continue
     if (
-        white_bbs[0] | black_bbs[0] | white_bbs[1] | black_bbs[1] | white_bbs[4] | black_bbs[4]
+        white_bbs[0] | black_bbs[0] | white_bbs[3] | black_bbs[3] | white_bbs[4] | black_bbs[4]
     ) != 0:
         return False
 

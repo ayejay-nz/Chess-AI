@@ -189,7 +189,7 @@ def find_rook_moves(player_bbs, opposition_bbs):
     Find possible rook moves
     """
 
-    rook_bb = player_bbs[1]
+    rook_bb = player_bbs[3]
 
     moves = []
 
@@ -216,7 +216,7 @@ def find_knight_moves(player_bbs):
     Find possible knight moves
     """
 
-    knight_bb = player_bbs[2]
+    knight_bb = player_bbs[1]
 
     knight_moves = [(2, -1), (2, 1), (1, 2), (1, -2), (-2, 1), (-2, -1), (-1, -2), (-1, 2)]
 
@@ -256,7 +256,7 @@ def find_bishop_moves(player_bbs, opposition_bbs):
     Find possible bishop moves
     """
 
-    bishop_bb = player_bbs[3]
+    bishop_bb = player_bbs[2]
 
     moves = []
 
@@ -368,7 +368,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     if kingside_free and k_rights:
         # check rook exists
         rook_square = square + k_rook_step
-        rook_exists = is_occupied_index([player_bbs[1]], rook_square)
+        rook_exists = is_occupied_index([player_bbs[3]], rook_square)
 
         move_square = square + k_step
         if not is_occupied_index(all_bbs, move_square) and rook_exists:
@@ -378,7 +378,7 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     if queenside_free and q_rights:
         # check rook exists
         rook_square = square + q_rook_step
-        rook_exists = is_occupied_index([player_bbs[1]], rook_square)
+        rook_exists = is_occupied_index([player_bbs[3]], rook_square)
 
         move_square = square + q_step
         if (
@@ -551,9 +551,9 @@ def apply_move(
                     rook_end_square = 1 << rook_end_idx
                     rook_square = 1 << rook_idx
 
-                    new_player[1] = new_player[1] ^ rook_square  # Remove the castled rook
-                    new_player[1] = new_player[1] ^ rook_end_square  # Place the castled rook
-            elif idx == 1:
+                    new_player[3] = new_player[3] ^ rook_square  # Remove the castled rook
+                    new_player[3] = new_player[3] ^ rook_end_square  # Place the castled rook
+            elif idx == 3:
                 # Moving a rook makes the player unable to castle that direction
                 key = (is_whites_move, start_idx)
                 if key in ROOK_START_RIGHTS:
@@ -580,7 +580,7 @@ def apply_move(
         # Remove captured piece
         if bb & end_square:
             # Rook was captured, so see if castling rights should be updated
-            if idx == 1:
+            if idx == 3:
                 key = (not is_whites_move, end_idx)
                 if key in ROOK_START_RIGHTS:
                     new_castling_rights &= ~ROOK_START_RIGHTS[key]
@@ -666,7 +666,7 @@ def is_square_attacked(target, attacker_bbs, defender_bbs, attacker_is_white):
     target_file = target & 7
     target_rank = target >> 3
 
-    pawn_bb, rook_bb, knight_bb, bishop_bb, queen_bb, king_bb = attacker_bbs
+    pawn_bb, knight_bb, bishop_bb, rook_bb, queen_bb, king_bb = attacker_bbs
 
     occupied = 0
     for bb in attacker_bbs:

@@ -11,9 +11,9 @@ from moves import apply_move, find_legal_moves, find_pseudo_legal_moves, in_chec
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 PIECE_TO_INDEX = {
     "p": 0,
-    "r": 1,
-    "n": 2,
-    "b": 3,
+    "n": 1,
+    "b": 2,
+    "r": 3,
     "q": 4,
     "k": 5,
 }
