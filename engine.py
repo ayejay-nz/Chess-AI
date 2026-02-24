@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from book import probe_opening_book
 from game import draw_by_insufficient_material
 from moves import apply_move, find_legal_moves, is_square_attacked
-from profiler import active_profiler
-from zobrist import compute_polyglot_key
+from profiler import active_profiler, bump_node
+from zobrist import ZobristState, compute_polyglot_key, update_key
 
 EXACT, LOWER, UPPER = 0, 1, 2
 
@@ -358,15 +358,46 @@ def negamax(
             is_whites_move,
         )
 
-        child_white_bbs = new_player_bbs if is_whites_move else new_opposition_bbs
-        child_black_bbs = new_opposition_bbs if is_whites_move else new_player_bbs
-        child_key = compute_polyglot_key(
-            child_white_bbs,
-            child_black_bbs,
+        # Update zobrist key
+        pre_state = ZobristState(
+            is_whites_move, castling_rights, en_passant_temp_idx, player_bbs[0]
+        )
+
+        start_square, end_square, _ = move
+        start_idx = 1 << start_square
+        end_idx = 1 << end_square
+
+        # Get moved piece type (bitboard index)
+        moving_piece_idx = None
+        for idx, bb in enumerate(player_bbs):
+            if start_idx & bb:
+                moving_piece_idx = idx
+                break
+
+        # Get captured piece type (bitboard index)
+        captured_piece_idx = None
+        captured_square_idx = None
+        for idx, bb in enumerate(opposition_bbs):
+            if end_idx & bb:
+                captured_piece_idx = idx
+                captured_square_idx = end_square
+                break
+            # Is en passant capture
+            elif idx == 0 and end_square == en_passant_temp_idx and moving_piece_idx == 0:
+                captured_piece_idx = idx
+                captured_square_idx = en_passant_real_idx
+                break
+
+        post_state = ZobristState(
+            not is_whites_move,
             new_castling_rights,
             new_en_passant_temp_idx,
-            not is_whites_move,
+            new_opposition_bbs[0],
+            moving_piece_idx,
+            captured_piece_idx,
+            captured_square_idx,
         )
+        child_key = update_key(zkey, move, pre_state, post_state)
 
         child_score, _, completed = negamax(
             new_opposition_bbs,
