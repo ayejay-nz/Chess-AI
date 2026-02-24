@@ -2,8 +2,8 @@ from polyglot_random import RANDOM64
 from gamestate import WK, WQ, BK, BQ
 
 # piece encodings relative to bitboard index
-kind_of_piece_white = [1, 7, 3, 5, 9, 11]
-kind_of_piece_black = [0, 6, 2, 4, 8, 10]
+kind_of_piece_white = [1, 3, 5, 7, 9, 11]
+kind_of_piece_black = [0, 2, 4, 6, 8, 10]
 
 
 def polyglot_ep_file_to_xor(player_pawns_bb, ep_square, is_whites_move):
