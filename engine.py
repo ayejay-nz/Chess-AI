@@ -337,6 +337,7 @@ def negamax(
     """
     Negamax search algorithm for the provided position to the desired depth
     """
+    bump_node()
 
     def _search_child(move):
         (
