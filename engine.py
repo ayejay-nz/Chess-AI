@@ -358,8 +358,8 @@ def negamax(
             is_whites_move,
         )
 
-        child_white_bbs = new_opposition_bbs if is_whites_move else new_player_bbs
-        child_black_bbs = new_player_bbs if is_whites_move else new_opposition_bbs
+        child_white_bbs = new_player_bbs if is_whites_move else new_opposition_bbs
+        child_black_bbs = new_opposition_bbs if is_whites_move else new_player_bbs
         child_key = compute_polyglot_key(
             child_white_bbs,
             child_black_bbs,
