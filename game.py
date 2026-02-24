@@ -1,4 +1,3 @@
-import gamestate
 from moves import find_pseudo_legal_moves, in_check
 from utils import get_file, get_rank
 

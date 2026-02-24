@@ -1,7 +1,5 @@
 import os
 import re
-import random
-import math
 import time
 
 import gamestate
