@@ -210,12 +210,10 @@ def find_rook_moves(rook_bb, player_occ, opposition_occ):
 
 
 @profiled()
-def find_knight_moves(player_bbs):
+def find_knight_moves(knight_bb, player_occ):
     """
     Find possible knight moves
     """
-
-    knight_bb = player_bbs[1]
 
     knight_moves = [(2, -1), (2, 1), (1, 2), (1, -2), (-2, 1), (-2, -1), (-1, -2), (-1, 2)]
 
@@ -237,9 +235,10 @@ def find_knight_moves(player_bbs):
                 continue
 
             move_square = 8 * move_rank + move_file
+            move_bit = 1 << move_square
 
             # Blocked by own piece
-            if is_occupied_index(player_bbs, move_square):
+            if move_bit & player_occ:
                 continue
 
             moves.append((square, move_square, None))
@@ -852,7 +851,7 @@ def find_pseudo_legal_moves(
     )
     piece_capturing_moves = (
         pawn_capturing_moves
-        + find_knight_moves(player_bbs)
+        + find_knight_moves(knight_bb, player_occ)
         + find_bishop_moves(bishop_bb, player_occ, opposition_occ)
         + find_rook_moves(rook_bb, player_occ, opposition_occ)
         + find_queen_moves(queen_bb, player_occ, opposition_occ)
