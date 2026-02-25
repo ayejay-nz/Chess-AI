@@ -4,24 +4,6 @@ from utils import piece_to_bitboard_index, get_rank, get_file
 
 
 @profiled()
-def is_occupied_index(bitboards, square_index):
-    """
-    Check if a square is occupied by a piece given a set of bitboards
-    """
-
-    if square_index < 0 or square_index > 63:
-        return False
-
-    square = 1 << square_index
-
-    for bb in bitboards:
-        if bb & square:
-            return True
-
-    return False
-
-
-@profiled()
 def walk_ray(square, player_occ, opposition_occ, rank, file, dr, df):
     """
     Walk one direction until blocked or reached edge of the board and return all valid moves
