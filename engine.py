@@ -572,7 +572,6 @@ def evaluate_position(
             castling_rights,
             en_passant_temp_idx,
             en_passant_real_idx,
-            halfmove_clock,
         )
         if book_move in legal_moves:
             return 0, book_move
