@@ -90,10 +90,12 @@ def get_promotion_moves(start_square, end_square):
 
 
 @profiled()
-def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx):
+def find_pawn_moves(pawn_bb, player_occ, opposition_occ, is_whites_move, en_passant_temp_idx):
     """
     Find possible pawn moves
     """
+
+    all_occ = player_occ | opposition_occ
 
     @profiled()
     def can_forward_move(square, rank):
@@ -108,7 +110,8 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         if move_square < 0 or move_square > 63:
             return moves
 
-        cannot_single_move = is_occupied_index(all_bbs, move_square)
+        move_bit = 1 << move_square
+        cannot_single_move = bool(move_bit & all_occ)
 
         if cannot_single_move:
             return moves
@@ -130,16 +133,14 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
         if not on_home_row:
             return moves
 
-        cannot_double_move = is_occupied_index(all_bbs, move_square)
+        move_bit = 1 << move_square
+        cannot_double_move = bool(move_bit & all_occ)
 
         if cannot_double_move:
             return moves
 
         moves.append((square, move_square, None))
         return moves
-
-    all_bbs = player_bbs + opposition_bbs
-    pawn_bb = player_bbs[0]
 
     pawn_capture_moves = [7, 9] if is_whites_move else [-7, -9]
 
@@ -166,7 +167,8 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
                 continue
 
             # Check if square has enemy piece which can be captured
-            if is_occupied_index(opposition_bbs, move_square):
+            move_bit = 1 << move_square
+            if move_bit & opposition_occ:
                 if is_on_promotion_rank(move_rank, is_whites_move):
                     promotion_moves = get_promotion_moves(square, move_square)
                     capture_moves.extend(promotion_moves)
@@ -844,7 +846,7 @@ def find_pseudo_legal_moves(
 
     # Store pseudo-legal moves for each piece type as (start square, end square, promotion piece)
     pawn_capturing_moves, pawn_moves = find_pawn_moves(
-        player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx
+        pawn_bb, player_occ, opposition_occ, is_whites_move, en_passant_temp_idx
     )
     king_moves, castling_moves = find_king_moves(
         player_bbs, opposition_bbs, is_whites_move, castling_rights
