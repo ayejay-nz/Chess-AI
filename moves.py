@@ -22,7 +22,7 @@ def is_occupied_index(bitboards, square_index):
 
 
 @profiled()
-def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
+def walk_ray(square, player_occ, opposition_occ, rank, file, dr, df):
     """
     Walk one direction until blocked or reached edge of the board and return all valid moves
     """
@@ -32,15 +32,16 @@ def walk_ray(square, player_bbs, opposition_bbs, rank, file, dr, df):
     move_rank, move_file = rank + dr, file + df
     while 0 <= move_rank <= 7 and 0 <= move_file <= 7:
         move_square = 8 * move_rank + move_file
+        move_bit = 1 << move_square
 
         # Blocked by own piece
-        if is_occupied_index(player_bbs, move_square):
+        if move_bit & player_occ:
             break
 
         moves.append((square, move_square, None))
 
         # Capturing so stop ray
-        if is_occupied_index(opposition_bbs, move_square):
+        if move_bit & opposition_occ:
             break
 
         move_rank += dr
@@ -184,12 +185,10 @@ def find_pawn_moves(player_bbs, opposition_bbs, is_whites_move, en_passant_temp_
 
 
 @profiled()
-def find_rook_moves(player_bbs, opposition_bbs):
+def find_rook_moves(rook_bb, player_occ, opposition_occ):
     """
     Find possible rook moves
     """
-
-    rook_bb = player_bbs[3]
 
     moves = []
 
@@ -200,10 +199,10 @@ def find_rook_moves(player_bbs, opposition_bbs):
         file = get_file(square)
 
         # Check all 4 rook directions: right, left, up, down
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, 0))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, 0))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 0, 1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 0, -1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 1, 0))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, -1, 0))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 0, 1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 0, -1))
 
         rook_bb ^= lsb
 
@@ -251,12 +250,10 @@ def find_knight_moves(player_bbs):
 
 
 @profiled()
-def find_bishop_moves(player_bbs, opposition_bbs):
+def find_bishop_moves(bishop_bb, player_occ, opposition_occ):
     """
     Find possible bishop moves
     """
-
-    bishop_bb = player_bbs[2]
 
     moves = []
 
@@ -267,10 +264,10 @@ def find_bishop_moves(player_bbs, opposition_bbs):
         file = get_file(square)
 
         # Check all 4 bishop directions
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, 1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, -1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, 1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, -1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 1, 1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 1, -1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, -1, 1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, -1, -1))
 
         bishop_bb ^= lsb
 
@@ -278,12 +275,10 @@ def find_bishop_moves(player_bbs, opposition_bbs):
 
 
 @profiled()
-def find_queen_moves(player_bbs, opposition_bbs):
+def find_queen_moves(queen_bb, player_occ, opposition_occ):
     """
     Find possible queen moves
     """
-
-    queen_bb = player_bbs[4]
 
     moves = []
 
@@ -294,14 +289,14 @@ def find_queen_moves(player_bbs, opposition_bbs):
         file = get_file(square)
 
         # Check all 8 queen directions
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, 0))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, 0))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 0, 1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 0, -1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, 1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, 1, -1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, 1))
-        moves.extend(walk_ray(square, player_bbs, opposition_bbs, rank, file, -1, -1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 1, 0))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, -1, 0))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 0, 1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 0, -1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 1, 1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, 1, -1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, -1, 1))
+        moves.extend(walk_ray(square, player_occ, opposition_occ, rank, file, -1, -1))
 
         queen_bb ^= lsb
 
@@ -829,6 +824,25 @@ def find_pseudo_legal_moves(
     Returns a list of all capturing moves, castling moves, and forward pawn moves
     """
 
+
+    player_occ = (
+        player_bbs[0]
+        | player_bbs[1]
+        | player_bbs[2]
+        | player_bbs[3]
+        | player_bbs[4]
+        | player_bbs[5]
+    )
+    opposition_occ = (
+        opposition_bbs[0]
+        | opposition_bbs[1]
+        | opposition_bbs[2]
+        | opposition_bbs[3]
+        | opposition_bbs[4]
+        | opposition_bbs[5]
+    )
+    pawn_bb, knight_bb, bishop_bb, rook_bb, queen_bb, king_bb = player_bbs
+
     # Store pseudo-legal moves for each piece type as (start square, end square, promotion piece)
     pawn_capturing_moves, pawn_moves = find_pawn_moves(
         player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx
@@ -838,10 +852,10 @@ def find_pseudo_legal_moves(
     )
     piece_capturing_moves = (
         pawn_capturing_moves
-        + find_rook_moves(player_bbs, opposition_bbs)
         + find_knight_moves(player_bbs)
-        + find_bishop_moves(player_bbs, opposition_bbs)
-        + find_queen_moves(player_bbs, opposition_bbs)
+        + find_bishop_moves(bishop_bb, player_occ, opposition_occ)
+        + find_rook_moves(rook_bb, player_occ, opposition_occ)
+        + find_queen_moves(queen_bb, player_occ, opposition_occ)
     )
 
     return piece_capturing_moves, king_moves, castling_moves, pawn_moves
