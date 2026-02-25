@@ -623,10 +623,6 @@ def filter_legal_moves(
                 legal_moves.append(move)
                 continue
 
-            # Double check, so king must move
-            if num_checkers >= 2 and not is_king_move:
-                continue
-
             # Non-king move while in check, so must capture or block
             if num_checkers == 1 and not is_king_move and not (end_bit & evasion_mask):
                 # Allow en passant if checker is ep-capturable pawn
@@ -639,6 +635,10 @@ def filter_legal_moves(
                 pin_mask = pinned_masks.get(start_sq, all_squares_mask)
                 if not (end_bit & pin_mask):
                     continue
+
+            # Double check, so king must move
+            if num_checkers >= 2 and not is_king_move:
+                continue
 
             # Non-king and non-ep moves are always legal now
             if not (is_king_move or is_ep_move):
