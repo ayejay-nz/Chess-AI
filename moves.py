@@ -459,6 +459,121 @@ def apply_move_lightweight(
 
 
 @profiled()
+def analyse_king_lines(player_bbs, opposition_bbs, is_whites_move):
+    """
+    Returns:
+    - `king_square`: int
+    - `checkers_bb`: int
+    - `pinned_masks`: dict[int, int] - pinned start square -> allowed end mask
+    - `evasion_mask`: int - valid non-king destinations in a single check (i.e. captures and blocks)
+    """
+
+    def piece_idx_at(bit):
+        for idx, bb in enumerate(opposition_bbs):
+            if bb & bit:
+                return idx
+        return None
+
+    # fmt: off
+    player_occ = player_bbs[0] | player_bbs[1] | player_bbs[2] | player_bbs[3] | player_bbs[4] | player_bbs[5]
+    opposition_occ = opposition_bbs[0] | opposition_bbs[1] | opposition_bbs[2] | opposition_bbs[3] | opposition_bbs[4] | opposition_bbs[5]
+    # fmt: on
+
+    king_bb = player_bbs[5]
+    king_square = king_bb.bit_length() - 1
+    k_rank, k_file = king_square >> 3, king_square & 7
+
+    checkers_bb = 0
+    pinned_masks = {}
+    evasion_mask = 0
+
+    # 8 king rays
+    # fmt: off
+    directions = (
+        (1, 0, True), (-1, 0, True), (0, 1, True), (0, -1, True), # orthogonal
+        (1, 1, False), (1, -1, False), (-1, 1, False), (-1, -1, False), # diagonal
+    )
+    # fmt: on
+
+    for dr, df, orth in directions:
+        rank, file = k_rank + dr, k_file + df
+        first_own_square = -1
+        ray_mask = 0  # squares from king outward (excluding the king)
+
+        while 0 <= rank <= 7 and 0 <= file <= 7:
+            square = 8 * rank + file
+            bit = 1 << square
+
+            # Ray collision with own piece
+            if player_occ & bit:
+                # Collided with more than 1 piece so no pin
+                if first_own_square != -1:
+                    break
+
+                first_own_square = square
+                rank += dr
+                file += df
+                continue
+
+            # Ray collision with opposition piece
+            if opposition_occ & bit:
+                idx = piece_idx_at(bit)
+                # Check if collided piece can move orthogonally (queen and rook) or diagonally (queen and bishop)
+                slider_ok = (idx in (3, 4)) if orth else (idx in (2, 4))
+
+                if slider_ok:
+                    # Piece is not blocked, i.e. it is checking the king
+                    if first_own_square == -1:
+                        checkers_bb |= bit
+
+                        if checkers_bb.bit_count() == 1:
+                            # Squares which, if occupied, will block the single check
+                            evasion_mask = ray_mask | bit
+                    else:
+                        pinned_masks[first_own_square] = ray_mask | bit
+                break
+
+            ray_mask |= bit
+            rank += dr
+            file += df
+
+    # Knight checks
+    knight_bb = opposition_bbs[1]
+    for dr, df in [(2, 1), (2, -1), (-2, 1), (-2, -1), (1, 2), (1, -2), (-1, 2), (-1, -2)]:
+        rank, file = k_rank + dr, k_file + df
+
+        if 0 <= rank <= 7 and 0 <= file <= 7:
+            square = 8 * rank + file
+            bit = 1 << square
+
+            if knight_bb & bit:
+                checkers_bb |= bit
+                if checkers_bb.bit_count() == 1:
+                    evasion_mask = bit
+
+    # Pawn checks
+    pawn_bb = opposition_bbs[0]
+    attacker_is_white = not is_whites_move
+    pawn_sources = (-9, -7) if attacker_is_white else (7, 9)
+
+    for delta in pawn_sources:
+        square = king_square + delta
+
+        if 0 <= square <= 63:
+            # File guard, pawn attack does not go around the board
+            if abs((square & 7) - k_file) != 1:
+                continue
+
+            bit = 1 << square
+            if pawn_bb & bit:
+                checkers_bb |= bit
+                if checkers_bb.bit_count() == 1:
+                    evasion_mask = bit
+
+    return king_square, checkers_bb, pinned_masks, evasion_mask
+
+
+@profiled()
 def filter_legal_moves(
     pseudo_legal_moves,
     player_bbs,
@@ -479,18 +594,61 @@ def filter_legal_moves(
         Find all moves from a set of moves which result in the king not being in check
         """
 
+        origin_king_square, checkers_bb, pinned_masks, evasion_mask = analyse_king_lines(
+            player_bbs, opposition_bbs, is_whites_move
+        )
+        num_checkers = checkers_bb.bit_count()
+
         for move in moves:
+            start_sq, end_sq, _ = move
+            start_bit = 1 << start_sq
+            end_bit = 1 << end_sq
+
+            is_king_move = start_sq == origin_king_square
+            is_ep_move = (
+                player_bbs[0] & start_bit  # moving piece is a pawn
+            ) and end_sq == en_passant_temp_idx
+
+            # Not in check and no pinned pieces, so non-king move can be added without checking
+            # Must also exclude en passant moves, as those may leave the king in check despite no pieces being pinned
+            if num_checkers == 0 and not pinned_masks and not is_king_move and not is_ep_move:
+                legal_moves.append(move)
+                continue
+
+            # Double check, so king must move
+            if num_checkers >= 2 and not is_king_move:
+                continue
+
+            # Non-king move while in check, so must capture or block
+            if num_checkers == 1 and not is_king_move and not (end_bit & evasion_mask):
+                # Allow en passant if checker is ep-capturable pawn
+                if not (is_ep_move and checkers_bb == (1 << en_passant_real_idx)):
+                    continue
+
+            # Pinned pieces can only move up/down the pin
+            # Skip for en passant as it may reveal a check despite no pieces being pinned
+            if not is_ep_move:
+                pin_mask = pinned_masks.get(start_sq, ~0)
+                if not (end_bit & pin_mask):
+                    continue
+
+            # Non-king and non-ep moves are always legal now
+            if not (is_king_move or is_ep_move):
+                legal_moves.append(move)
+                continue
+
+            # Now all that is left to check is king moves and en passant moves
             new_player_bbs, new_opposition_bbs = apply_move_lightweight(
                 player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx
             )
 
             # See if an opponents piece can attack the king
             king_bb = new_player_bbs[5]
-            king_square = king_bb.bit_length() - 1
+            king_square_after = king_bb.bit_length() - 1
 
             # King is not in check so move is legal
             if not is_square_attacked(
-                king_square, new_opposition_bbs, new_player_bbs, not is_whites_move
+                king_square_after, new_opposition_bbs, new_player_bbs, not is_whites_move
             ):
                 legal_moves.append(move)
 
