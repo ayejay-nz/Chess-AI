@@ -588,30 +588,38 @@ def filter_legal_moves(
 
     legal_moves = []
 
+    origin_king_square, checkers_bb, pinned_masks, evasion_mask = analyse_king_lines(
+        player_bbs, opposition_bbs, is_whites_move
+    )
+    num_checkers = checkers_bb.bit_count()
+    can_fast_append_non_king = num_checkers == 0 and not pinned_masks
+    pawn_bb = player_bbs[0]
+
+    kingside_clear = False
+    queenside_clear = False
+    all_squares_mask = (1 << 64) - 1
+
     @profiled()
-    def filter_moves(moves):
+    def filter_moves(moves, are_king_moves=False):
         """
         Find all moves from a set of moves which result in the king not being in check
         """
 
-        origin_king_square, checkers_bb, pinned_masks, evasion_mask = analyse_king_lines(
-            player_bbs, opposition_bbs, is_whites_move
-        )
-        num_checkers = checkers_bb.bit_count()
+        nonlocal kingside_clear, queenside_clear
 
         for move in moves:
             start_sq, end_sq, _ = move
-            start_bit = 1 << start_sq
             end_bit = 1 << end_sq
 
-            is_king_move = start_sq == origin_king_square
-            is_ep_move = (
-                player_bbs[0] & start_bit  # moving piece is a pawn
-            ) and end_sq == en_passant_temp_idx
+            is_king_move = are_king_moves
+            is_ep_move = False
+            if not are_king_moves:
+                start_bit = 1 << start_sq
+                is_ep_move = (pawn_bb & start_bit) and end_sq == en_passant_temp_idx
 
             # Not in check and no pinned pieces, so non-king move can be added without checking
             # Must also exclude en passant moves, as those may leave the king in check despite no pieces being pinned
-            if num_checkers == 0 and not pinned_masks and not is_king_move and not is_ep_move:
+            if can_fast_append_non_king and not is_king_move and not is_ep_move:
                 legal_moves.append(move)
                 continue
 
@@ -628,7 +636,7 @@ def filter_legal_moves(
             # Pinned pieces can only move up/down the pin
             # Skip for en passant as it may reveal a check despite no pieces being pinned
             if not is_ep_move:
-                pin_mask = pinned_masks.get(start_sq, ~0)
+                pin_mask = pinned_masks.get(start_sq, all_squares_mask)
                 if not (end_bit & pin_mask):
                     continue
 
@@ -651,17 +659,18 @@ def filter_legal_moves(
                 king_square_after, new_opposition_bbs, new_player_bbs, not is_whites_move
             ):
                 legal_moves.append(move)
+                # Set variables for castling
+                if are_king_moves:
+                    move_delta = end_sq - origin_king_square
+                    if move_delta == 1:
+                        kingside_clear = True
+                    elif move_delta == -1:
+                        queenside_clear = True
 
     piece_moves, king_moves, castling_moves, pawn_moves = pseudo_legal_moves
 
     # Find safe king moves
-    filter_moves(king_moves)
-
-    # See if the king would be castling through check
-    kingside_clear = True if (4, 5, None) in legal_moves or (60, 61, None) in legal_moves else False
-    queenside_clear = (
-        True if (4, 3, None) in legal_moves or (60, 59, None) in legal_moves else False
-    )
+    filter_moves(king_moves, True)
 
     # Find piece moves leaving king safe
     filter_moves(piece_moves + pawn_moves)
