@@ -305,17 +305,18 @@ def find_queen_moves(queen_bb, player_occ, opposition_occ):
 
 
 @profiled()
-def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights):
+def find_king_moves(king_bb, rook_bb, player_occ, opposition_occ, is_whites_move, castling_rights):
     """
     Find possible king moves
     """
+
+    all_occ = player_occ | opposition_occ
 
     moves = []
     castling_moves = []
 
     king_moves = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]
 
-    king_bb = player_bbs[5]
     if king_bb == 0:
         return moves, castling_moves
 
@@ -330,15 +331,16 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
 
         if 0 <= move_rank <= 7 and 0 <= move_file <= 7:
             move_square = 8 * move_rank + move_file
+            move_bit = 1 << move_square
 
             # Blocked by friendly piece
-            if is_occupied_index(player_bbs, move_square):
+            if move_bit & player_occ:
                 continue
 
             moves.append((square, move_square, None))
 
             # If a left/right move is a capturing move, i.e. you cannot castle in that direction
-            if dr != 0 or is_occupied_index(opposition_bbs, move_square):
+            if dr != 0 or (move_bit & opposition_occ):
                 continue
 
             # Square to the left (kingside) or right (queenside) of king is free
@@ -359,27 +361,29 @@ def find_king_moves(player_bbs, opposition_bbs, is_whites_move, castling_rights)
     else:
         k_rights, q_rights = BK_rights, BQ_rights
 
-    all_bbs = player_bbs + opposition_bbs
     # check kingside castling
     if kingside_free and k_rights:
         # check rook exists
         rook_square = square + k_rook_step
-        rook_exists = is_occupied_index([player_bbs[3]], rook_square)
+        rook_exists = bool((1 << rook_square) & rook_bb)
 
         move_square = square + k_step
-        if not is_occupied_index(all_bbs, move_square) and rook_exists:
+        move_bit = 1 << move_square
+        if not (move_bit & all_occ) and rook_exists:
             castling_moves.append((square, move_square, None))
 
     # check queenside castling
     if queenside_free and q_rights:
         # check rook exists
         rook_square = square + q_rook_step
-        rook_exists = is_occupied_index([player_bbs[3]], rook_square)
+        rook_exists = bool((1 << rook_square) & rook_bb)
 
         move_square = square + q_step
+        move_bit = 1 << move_square
+        move_q_extra_bit = 1 << (move_square + q_extra)
         if (
-            not is_occupied_index(all_bbs, move_square)
-            and not is_occupied_index(player_bbs + opposition_bbs, move_square + q_extra)
+            not (move_bit & all_occ)
+            and not (move_q_extra_bit & all_occ)
             and rook_exists
         ):
             castling_moves.append((square, move_square, None))
@@ -849,7 +853,7 @@ def find_pseudo_legal_moves(
         pawn_bb, player_occ, opposition_occ, is_whites_move, en_passant_temp_idx
     )
     king_moves, castling_moves = find_king_moves(
-        player_bbs, opposition_bbs, is_whites_move, castling_rights
+        king_bb, rook_bb, player_occ, opposition_occ, is_whites_move, castling_rights
     )
     piece_capturing_moves = (
         pawn_capturing_moves
