@@ -433,15 +433,26 @@ def apply_move_lightweight(
             new_player[idx] ^= end_square
             break
 
+    # Check for en passant
+    if moved_piece_idx == 0 and end_idx == en_passant_temp_idx:
+        new_opposition[0] ^= 1 << en_passant_real_idx
+        return new_player, new_opposition
+
+    # Move is not a capture move
+    if not end_square & (
+        new_opposition[0]
+        | new_opposition[1]
+        | new_opposition[2]
+        | new_opposition[3]
+        | new_opposition[4]
+        | new_opposition[5]
+    ):
+        return new_player, new_opposition
+
     for idx, bb in enumerate(new_opposition):
         # Remove captured piece
         if bb & end_square:
             new_opposition[idx] ^= end_square
-            break
-
-        # Remove en passanted pawn
-        if idx == 0 and moved_piece_idx == 0 and end_idx == en_passant_temp_idx:
-            new_opposition[0] ^= 1 << en_passant_real_idx
             break
 
     return new_player, new_opposition
