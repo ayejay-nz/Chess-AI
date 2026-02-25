@@ -401,6 +401,53 @@ def in_check(king_square, opposition_moves):
 
 
 @profiled()
+def apply_move_lightweight(
+    player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx
+):
+    """
+    A lightweight version of the apply_move function which only applies the absolute minimum amount
+    of changes inorder to check if the move leaves the king in check.
+
+    Omits:
+    - Updating castling rights
+    - Moving rooks when castling
+    - Promotion
+    - Setting en passant temp/real pawn indexes
+    - Updating halfmove clock
+    """
+
+    start_idx, end_idx, _ = move
+    start_square, end_square = 1 << start_idx, 1 << end_idx
+
+    new_player = player_bbs[:]
+    new_opposition = opposition_bbs[:]
+
+    moved_piece_idx = None
+
+    for idx, bb in enumerate(new_player):
+        # Find bb of the moved piece
+        if bb & start_square:
+            # Move the moved piece
+            moved_piece_idx = idx
+            new_player[idx] ^= start_square
+            new_player[idx] ^= end_square
+            break
+
+    for idx, bb in enumerate(new_opposition):
+        # Remove captured piece
+        if bb & end_square:
+            new_opposition[idx] ^= end_square
+            break
+
+        # Remove en passanted pawn
+        if idx == 0 and moved_piece_idx == 0 and end_idx == en_passant_temp_idx:
+            new_opposition[0] ^= 1 << en_passant_real_idx
+            break
+
+    return new_player, new_opposition
+
+
+@profiled()
 def filter_legal_moves(
     pseudo_legal_moves,
     player_bbs,
@@ -424,15 +471,8 @@ def filter_legal_moves(
         """
 
         for move in moves:
-            new_player_bbs, new_opposition_bbs, new_en_passant_temp_idx, _, _, _ = apply_move(
-                player_bbs,
-                opposition_bbs,
-                move,
-                en_passant_temp_idx,
-                en_passant_real_idx,
-                halfmove_clock,
-                castling_rights,
-                is_whites_move,
+            new_player_bbs, new_opposition_bbs = apply_move_lightweight(
+                player_bbs, opposition_bbs, move, en_passant_temp_idx, en_passant_real_idx
             )
 
             # See if an opponents piece can attack the king
