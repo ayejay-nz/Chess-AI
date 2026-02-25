@@ -453,10 +453,8 @@ def filter_legal_moves(
     player_bbs,
     opposition_bbs,
     is_whites_move,
-    castling_rights,
     en_passant_temp_idx,
     en_passant_real_idx,
-    halfmove_clock,
 ):
     """
     Convert a list of all pseudo-legal moves into legal moves, i.e. remove all moves that result in a check
@@ -781,7 +779,6 @@ def find_legal_moves(
     castling_rights,
     en_passant_temp_idx,
     en_passant_real_idx,
-    halfmove_clock,
 ):
     """
     Find all legal moves for the given player
@@ -798,10 +795,8 @@ def find_legal_moves(
         player_bbs,
         opposition_bbs,
         is_whites_move,
-        castling_rights,
         en_passant_temp_idx,
         en_passant_real_idx,
-        halfmove_clock,
     )
 
     return legal_moves

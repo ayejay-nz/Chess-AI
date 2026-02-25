@@ -236,7 +236,6 @@ def main():
             gamestate.castling_rights,
             gamestate.temp_pawn_idx,
             gamestate.real_pawn_idx,
-            gamestate.halfmove_clock,
         )
 
         # No legal moves to make, so either stalemate or checkmate

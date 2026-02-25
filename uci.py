@@ -197,7 +197,6 @@ def generate_legal_moves(position: Position) -> list[tuple[int, int, str | None]
         position.castling_rights,
         position.en_passant_temp_idx,
         position.en_passant_real_idx,
-        position.halfmove_clock,
     )
 
 

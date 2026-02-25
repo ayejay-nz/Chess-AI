@@ -471,7 +471,6 @@ def negamax(
         castling_rights,
         en_passant_temp_idx,
         en_passant_real_idx,
-        halfmove_clock,
     )
 
     # No legal moves, so a mate has occurred
