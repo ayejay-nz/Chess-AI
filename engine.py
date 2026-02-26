@@ -333,6 +333,7 @@ def quiescence_search(
     castling_rights,
     alpha,
     beta,
+    qdepth=6,
     deadline=None,
 ):
     """
@@ -340,14 +341,96 @@ def quiescence_search(
     """
     bump_node()
 
+    def _quiesce_child(moves, best_value, alpha, beta):
+        for move in moves:
+            (
+                new_player_bbs,
+                new_opposition_bbs,
+                new_en_passant_temp_idx,
+                new_en_passant_real_idx,
+                new_halfmove_clock,
+                new_castling_rights,
+            ) = apply_move(
+                player_bbs,
+                opposition_bbs,
+                move,
+                en_passant_temp_idx,
+                en_passant_real_idx,
+                halfmove_clock,
+                castling_rights,
+                is_whites_move,
+            )
+
+            new_legal_moves = find_legal_moves(
+                new_opposition_bbs,
+                new_player_bbs,
+                not is_whites_move,
+                new_castling_rights,
+                new_en_passant_temp_idx,
+                new_en_passant_real_idx,
+            )
+
+            score, completed = quiescence_search(
+                new_legal_moves,
+                new_opposition_bbs,
+                new_player_bbs,
+                not is_whites_move,
+                new_en_passant_temp_idx,
+                new_en_passant_real_idx,
+                new_halfmove_clock,
+                new_castling_rights,
+                -beta,
+                -alpha,
+                qdepth - 1,
+                deadline,
+            )
+            score = -score
+
+            if not completed:
+                return 0, False
+
+            if score >= beta:
+                return score, True
+            if score > best_value:
+                best_value = score
+            if score > alpha:
+                alpha = score
+
+        return best_value, True
+
     if deadline is not None and time.monotonic() >= deadline:
         return 0, False
 
+    # No legal moves, so a mate has occurred
+    king_square = player_bbs[5].bit_length() - 1
+    in_check = is_square_attacked(king_square, opposition_bbs, player_bbs, not is_whites_move)
+
+    if not legal_moves:
+        if in_check:
+            return -CHECKMATE_VALUE, True
+
+        return 0, True  # stalemate
+
     static_evaluation = static_eval(player_bbs, opposition_bbs, is_whites_move)
+    best_value = static_evaluation
+
+    # Ensure player is not in check as you cannot stand pat in such case
+    if in_check:
+        # Search the "best" evading move first
+        capture_moves, non_capture_moves = mvv_lva_ordering(
+            legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+        )
+
+        # Keep searching if king is in check - ignore qdepth here
+        # Set best_value to -infinity as that ensures best score comes from an evasion move, not static eval
+        best_value = -math.inf
+        return _quiesce_child(capture_moves + non_capture_moves, best_value, alpha, beta)
+
+    if qdepth <= 0:
+        return best_value, True
 
     # Stand pat - Assume at least one move can either match or beat the lower bound score
     # Based on Null Move Observation - assumes we are not in Zugzwang
-    best_value = static_evaluation
     if best_value >= beta:
         return best_value, True  # fail-soft
     if best_value > alpha:
@@ -356,61 +439,8 @@ def quiescence_search(
     capture_moves, _ = mvv_lva_ordering(
         legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
     )
-    for move in capture_moves:
-        # make capture
-        (
-            new_player_bbs,
-            new_opposition_bbs,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-            new_halfmove_clock,
-            new_castling_rights,
-        ) = apply_move(
-            player_bbs,
-            opposition_bbs,
-            move,
-            en_passant_temp_idx,
-            en_passant_real_idx,
-            halfmove_clock,
-            castling_rights,
-            is_whites_move,
-        )
 
-        new_legal_moves = find_legal_moves(
-            new_opposition_bbs,
-            new_player_bbs,
-            not is_whites_move,
-            new_castling_rights,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-        )
-
-        score, completed = quiescence_search(
-            new_legal_moves,
-            new_opposition_bbs,
-            new_player_bbs,
-            not is_whites_move,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-            new_halfmove_clock,
-            new_castling_rights,
-            -beta,
-            -alpha,
-            deadline,
-        )
-        score = -score
-
-        if not completed:
-            return 0, False
-
-        if score >= beta:
-            return score, True
-        if score > best_value:
-            best_value = score
-        if score > alpha:
-            alpha = score
-
-    return best_value, True
+    return _quiesce_child(capture_moves, best_value, alpha, beta)
 
 
 def negamax(
@@ -588,6 +618,7 @@ def negamax(
             castling_rights,
             alpha,
             beta,
+            6,
             deadline,
         )
         if q_completed:
