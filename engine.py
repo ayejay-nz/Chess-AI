@@ -261,6 +261,10 @@ def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_id
     Sort the legal moves according to the MVV-LVA heuristic:
     - Lookup potential victims of all attacked opponent pieces, most valuable being first
     - After most valuable is found, find potential aggressors in inverse order (least valuable first)
+
+    Returns two arrays:
+    - First array is the ordered array of attacking moves
+    - Second array is the unordered non-capturing moves
     """
 
     def _is_player_pawn(square):
@@ -310,12 +314,12 @@ def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_id
 
     # No legal capture moves
     if not capture_moves:
-        return non_capture_moves
+        return capture_moves, non_capture_moves
 
     # Sort capturing moves according to MVV-LVA
     capture_moves.sort(key=lambda move: _find_move_mvv_lva_score(move), reverse=True)
 
-    return capture_moves + non_capture_moves
+    return capture_moves, non_capture_moves
 
 
 def negamax(
@@ -505,8 +509,8 @@ def negamax(
             return best_score, best_move, True
 
     # Apply MVV-LVA move ordering
-    ordered_moves = mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx)
-    for move in ordered_moves:
+    capture_moves, non_capture_moves = mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx)
+    for move in capture_moves + non_capture_moves:
         if move == pv_move:
             continue
 
