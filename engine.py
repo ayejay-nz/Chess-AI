@@ -334,6 +334,7 @@ def quiescence_search(
     alpha,
     beta,
     qdepth=6,
+    ply=0,
     deadline=None,
 ):
     """
@@ -382,6 +383,7 @@ def quiescence_search(
                 -beta,
                 -alpha,
                 qdepth - 1,
+                ply + 1,
                 deadline,
             )
             score = -score
@@ -407,7 +409,7 @@ def quiescence_search(
 
     if not legal_moves:
         if in_check:
-            return -CHECKMATE_VALUE, True
+            return -CHECKMATE_VALUE + ply, True
 
         return 0, True  # stalemate
 
@@ -618,8 +620,8 @@ def negamax(
             castling_rights,
             alpha,
             beta,
-            6,
-            deadline,
+            ply=ply,
+            deadline=deadline,
         )
         if q_completed:
             return q_score, (), True
