@@ -333,10 +333,15 @@ def quiescence_search(
     castling_rights,
     alpha,
     beta,
+    deadline=None,
 ):
     """
     Perform a quiescence search on the provided position
     """
+    bump_node()
+
+    if deadline is not None and time.monotonic() >= deadline:
+        return 0, False
 
     static_evaluation = static_eval(player_bbs, opposition_bbs, is_whites_move)
 
@@ -344,7 +349,7 @@ def quiescence_search(
     # Based on Null Move Observation - assumes we are not in Zugzwang
     best_value = static_evaluation
     if best_value >= beta:
-        return best_value  # fail-soft
+        return best_value, True  # fail-soft
     if best_value > alpha:
         alpha = best_value
 
@@ -380,7 +385,7 @@ def quiescence_search(
             new_en_passant_real_idx,
         )
 
-        score = -quiescence_search(
+        score, completed = quiescence_search(
             new_legal_moves,
             new_opposition_bbs,
             new_player_bbs,
@@ -391,16 +396,21 @@ def quiescence_search(
             new_castling_rights,
             -beta,
             -alpha,
+            deadline,
         )
+        score = -score
+
+        if not completed:
+            return 0, False
 
         if score >= beta:
-            return score
+            return score, True
         if score > best_value:
             best_value = score
         if score > alpha:
             alpha = score
 
-    return best_value
+    return best_value, True
 
 
 def negamax(
@@ -567,7 +577,7 @@ def negamax(
         return 0, (), True  # stalemate
 
     if depth == 0:
-        return quiescence_search(
+        q_score, q_completed = quiescence_search(
             legal_moves,
             player_bbs,
             opposition_bbs,
@@ -578,7 +588,12 @@ def negamax(
             castling_rights,
             alpha,
             beta,
-        ), (), True
+            deadline,
+        )
+        if q_completed:
+            return q_score, (), True
+        else:
+            return 0, (), False
 
     best_move = ()
     best_score = -math.inf
@@ -601,7 +616,9 @@ def negamax(
             return best_score, best_move, True
 
     # Apply MVV-LVA move ordering
-    capture_moves, non_capture_moves = mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx)
+    capture_moves, non_capture_moves = mvv_lva_ordering(
+        legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+    )
     for move in capture_moves + non_capture_moves:
         if move == pv_move:
             continue
