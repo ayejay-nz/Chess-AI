@@ -322,6 +322,87 @@ def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_id
     return capture_moves, non_capture_moves
 
 
+def quiescence_search(
+    legal_moves,
+    player_bbs,
+    opposition_bbs,
+    is_whites_move,
+    en_passant_temp_idx,
+    en_passant_real_idx,
+    halfmove_clock,
+    castling_rights,
+    alpha,
+    beta,
+):
+    """
+    Perform a quiescence search on the provided position
+    """
+
+    static_evaluation = static_eval(player_bbs, opposition_bbs, is_whites_move)
+
+    # Stand pat - Assume at least one move can either match or beat the lower bound score
+    # Based on Null Move Observation - assumes we are not in Zugzwang
+    best_value = static_evaluation
+    if best_value >= beta:
+        return best_value  # fail-soft
+    if best_value > alpha:
+        alpha = best_value
+
+    capture_moves, _ = mvv_lva_ordering(
+        legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+    )
+    for move in capture_moves:
+        # make capture
+        (
+            new_player_bbs,
+            new_opposition_bbs,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+            new_halfmove_clock,
+            new_castling_rights,
+        ) = apply_move(
+            player_bbs,
+            opposition_bbs,
+            move,
+            en_passant_temp_idx,
+            en_passant_real_idx,
+            halfmove_clock,
+            castling_rights,
+            is_whites_move,
+        )
+
+        new_legal_moves = find_legal_moves(
+            new_opposition_bbs,
+            new_player_bbs,
+            not is_whites_move,
+            new_castling_rights,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+        )
+
+        score = -quiescence_search(
+            new_legal_moves,
+            new_opposition_bbs,
+            new_player_bbs,
+            not is_whites_move,
+            new_en_passant_temp_idx,
+            new_en_passant_real_idx,
+            new_halfmove_clock,
+            new_castling_rights,
+            -beta,
+            -alpha,
+        )
+
+        if score >= beta:
+            return score
+        if score > best_value:
+            best_value = score
+        if score > alpha:
+            alpha = score
+
+    return best_value
+
+
 def negamax(
     player_bbs,
     opposition_bbs,
@@ -486,7 +567,18 @@ def negamax(
         return 0, (), True  # stalemate
 
     if depth == 0:
-        return static_eval(player_bbs, opposition_bbs, is_whites_move), (), True
+        return quiescence_search(
+            legal_moves,
+            player_bbs,
+            opposition_bbs,
+            is_whites_move,
+            en_passant_temp_idx,
+            en_passant_real_idx,
+            halfmove_clock,
+            castling_rights,
+            alpha,
+            beta,
+        ), (), True
 
     best_move = ()
     best_score = -math.inf
