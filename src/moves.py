@@ -1,9 +1,175 @@
+from dataclasses import dataclass
+
 from gamestate import ROOK_START_RIGHTS, WK, WQ, BK, BQ
 from profiler import profiled
 from utils import piece_to_bitboard_index, get_rank, get_file
 
 
 @profiled()
+@dataclass
+class SearchState:
+    player_bbs: list[int]
+    opposition_bbs: list[int]
+    is_whites_move: bool
+    castling_rights: int
+    en_passant_temp_idx: int
+    en_passant_real_idx: int
+    halfmove_clock: int
+
+
+@dataclass
+class Undo:
+    moved_piece_idx: int
+    start_square: int
+    end_square: int
+    en_passant_temp_idx: int
+    en_passant_real_idx: int
+    castling_rights: int
+    halfmove_clock: int
+    promotion_piece: str | None = None
+    captured_piece_idx: int | None = None
+    captured_piece_square: int | None = None
+
+
+def make_move_inplace(state: SearchState, move) -> Undo:
+    """
+    Apply `move` to `state` inplace, and return an `Undo` object containing the information
+    of the before state before the move so it can later be restored
+    """
+
+    def _get_bb_idx(bbs, bit):
+        for idx, bb in enumerate(bbs):
+            if bit & bb:
+                return idx
+        return None
+
+    start_sq, end_sq, promo = move
+    start_bit, end_bit = 1 << start_sq, 1 << end_sq
+
+    moved_piece_idx = _get_bb_idx(state.player_bbs, start_bit)
+    captured_piece_idx = _get_bb_idx(state.opposition_bbs, end_bit)
+
+    undo = Undo(
+        moved_piece_idx=moved_piece_idx,
+        start_square=start_sq,
+        end_square=end_sq,
+        en_passant_temp_idx=state.en_passant_temp_idx,
+        en_passant_real_idx=state.en_passant_real_idx,
+        castling_rights=state.castling_rights,
+        halfmove_clock=state.halfmove_clock,
+        promotion_piece=promo,
+        captured_piece_idx=captured_piece_idx,
+    )
+
+    state.halfmove_clock += 1
+
+    # Remove en passanted pawn first so we can reset en passant indexes
+    if moved_piece_idx == 0 and end_sq == state.en_passant_temp_idx:
+        state.opposition_bbs[0] ^= 1 << state.en_passant_real_idx
+
+        # Store location of en passanted pawn in undo
+        undo.captured_piece_idx = 0
+        undo.captured_piece_square = state.en_passant_real_idx
+
+    state.en_passant_temp_idx = -1
+    state.en_passant_real_idx = -1
+
+    # Move piece
+    state.player_bbs[moved_piece_idx] ^= start_bit  # Remove piece
+    if promo is None:
+        state.player_bbs[moved_piece_idx] ^= end_bit
+
+        if moved_piece_idx == 0:
+            state.halfmove_clock = 0
+
+            # Update en passant data if needed
+            move_delta = end_sq - start_sq
+            if abs(move_delta) == 16:
+                state.en_passant_real_idx = end_sq
+                state.en_passant_temp_idx = (start_sq + end_sq) // 2
+        elif moved_piece_idx == 3:
+            key = (state.is_whites_move, start_sq)
+            if key in ROOK_START_RIGHTS:
+                state.castling_rights &= ~ROOK_START_RIGHTS[key]
+        elif moved_piece_idx == 5:
+            # Update castling rights
+            castling_mask = BK | BQ if state.is_whites_move else WK | WQ
+            state.castling_rights &= castling_mask
+
+            # Castling also moves rook
+            move_delta = end_sq - start_sq
+            if move_delta == 2:  # kingside
+                state.player_bbs[3] ^= 1 << (start_sq + 3)
+                state.player_bbs[3] ^= 1 << (start_sq + 1)
+            elif move_delta == -2:  # queenside
+                state.player_bbs[3] ^= 1 << (start_sq - 4)
+                state.player_bbs[3] ^= 1 << (start_sq - 1)
+    else:
+        state.halfmove_clock = 0
+        promo_idx = piece_to_bitboard_index(promo)
+        state.player_bbs[promo_idx] ^= end_bit  # Place promoted piece
+
+    # Remove captured piece
+    if captured_piece_idx is not None:
+        state.halfmove_clock = 0
+        state.opposition_bbs[captured_piece_idx] ^= end_bit
+
+        undo.captured_piece_square = end_sq
+
+        # Rook captured - update castling rights
+        if captured_piece_idx == 3:
+            key = (not state.is_whites_move, end_sq)
+            if key in ROOK_START_RIGHTS:
+                state.castling_rights &= ~ROOK_START_RIGHTS[key]
+
+    state.is_whites_move = not state.is_whites_move
+    state.player_bbs, state.opposition_bbs = state.opposition_bbs, state.player_bbs
+
+    return undo
+
+
+def unmake_move_inplace(state: SearchState, undo: Undo):
+    """
+    Unmake a move and restore `state` back to what it was previously using `undo`
+    """
+
+    state.player_bbs, state.opposition_bbs = state.opposition_bbs, state.player_bbs
+    state.is_whites_move = not state.is_whites_move
+
+    # Place moved piece back to where it was
+    state.player_bbs[undo.moved_piece_idx] ^= 1 << undo.start_square
+
+    # Remove piece from where it was moved to, considering promotion and check
+    if undo.promotion_piece is not None:
+        # Remove promoted piece
+        promotion_idx = piece_to_bitboard_index(undo.promotion_piece)
+        state.player_bbs[promotion_idx] ^= 1 << undo.end_square
+    elif undo.moved_piece_idx == 5:
+        # Remove king
+        state.player_bbs[5] ^= 1 << undo.end_square
+
+        # Move rook if castled
+        move_delta = undo.end_square - undo.start_square
+        if move_delta == 2:  # kingside
+            state.player_bbs[3] ^= 1 << (undo.start_square + 1)
+            state.player_bbs[3] ^= 1 << (undo.start_square + 3)
+        elif move_delta == -2:  # queenside
+            state.player_bbs[3] ^= 1 << (undo.start_square - 1)
+            state.player_bbs[3] ^= 1 << (undo.start_square - 4)
+    else:
+        # Remove remaining pieces
+        state.player_bbs[undo.moved_piece_idx] ^= 1 << undo.end_square
+
+    # Replace captured piece, if there was one
+    if undo.captured_piece_idx is not None:
+        state.opposition_bbs[undo.captured_piece_idx] ^= 1 << undo.captured_piece_square
+
+    state.castling_rights = undo.castling_rights
+    state.en_passant_temp_idx = undo.en_passant_temp_idx
+    state.en_passant_real_idx = undo.en_passant_real_idx
+    state.halfmove_clock = undo.halfmove_clock
+
+
 def walk_ray(square, player_occ, opposition_occ, rank, file, dr, df):
     """
     Walk one direction until blocked or reached edge of the board and return all valid moves
