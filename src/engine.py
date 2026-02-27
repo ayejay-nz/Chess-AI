@@ -330,14 +330,8 @@ def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_id
 
 
 def quiescence_search(
+    state: SearchState,
     legal_moves,
-    player_bbs,
-    opposition_bbs,
-    is_whites_move,
-    en_passant_temp_idx,
-    en_passant_real_idx,
-    halfmove_clock,
-    castling_rights,
     alpha,
     beta,
     qdepth=6,
@@ -351,42 +345,20 @@ def quiescence_search(
 
     def _quiesce_child(moves, best_value, alpha, beta):
         for move in moves:
-            (
-                new_player_bbs,
-                new_opposition_bbs,
-                new_en_passant_temp_idx,
-                new_en_passant_real_idx,
-                new_halfmove_clock,
-                new_castling_rights,
-            ) = apply_move(
-                player_bbs,
-                opposition_bbs,
-                move,
-                en_passant_temp_idx,
-                en_passant_real_idx,
-                halfmove_clock,
-                castling_rights,
-                is_whites_move,
-            )
+            undo = make_move_inplace(state, move)
 
             new_legal_moves = find_legal_moves(
-                new_opposition_bbs,
-                new_player_bbs,
-                not is_whites_move,
-                new_castling_rights,
-                new_en_passant_temp_idx,
-                new_en_passant_real_idx,
+                state.player_bbs,
+                state.opposition_bbs,
+                state.is_whites_move,
+                state.castling_rights,
+                state.en_passant_temp_idx,
+                state.en_passant_real_idx,
             )
 
             score, completed = quiescence_search(
+                state,
                 new_legal_moves,
-                new_opposition_bbs,
-                new_player_bbs,
-                not is_whites_move,
-                new_en_passant_temp_idx,
-                new_en_passant_real_idx,
-                new_halfmove_clock,
-                new_castling_rights,
                 -beta,
                 -alpha,
                 qdepth - 1,
@@ -394,6 +366,8 @@ def quiescence_search(
                 deadline,
             )
             score = -score
+
+            unmake_move_inplace(state, undo)
 
             if not completed:
                 return 0, False
@@ -411,8 +385,10 @@ def quiescence_search(
         return 0, False
 
     # No legal moves, so a mate has occurred
-    king_square = player_bbs[5].bit_length() - 1
-    in_check = is_square_attacked(king_square, opposition_bbs, player_bbs, not is_whites_move)
+    king_square = state.player_bbs[5].bit_length() - 1
+    in_check = is_square_attacked(
+        king_square, state.opposition_bbs, state.player_bbs, not state.is_whites_move
+    )
 
     if not legal_moves:
         if in_check:
@@ -420,14 +396,14 @@ def quiescence_search(
 
         return 0, True  # stalemate
 
-    static_evaluation = static_eval(player_bbs, opposition_bbs, is_whites_move)
+    static_evaluation = static_eval(state.player_bbs, state.opposition_bbs, state.is_whites_move)
     best_value = static_evaluation
 
     # Ensure player is not in check as you cannot stand pat in such case
     if in_check:
         # Search the "best" evading move first
         capture_moves, non_capture_moves = mvv_lva_ordering(
-            legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+            legal_moves, state.player_bbs, state.opposition_bbs, state.en_passant_temp_idx
         )
 
         # Keep searching if king is in check - ignore qdepth here
@@ -446,7 +422,7 @@ def quiescence_search(
         alpha = best_value
 
     capture_moves, _ = mvv_lva_ordering(
-        legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+        legal_moves, state.player_bbs, state.opposition_bbs, state.en_passant_temp_idx
     )
 
     return _quiesce_child(capture_moves, best_value, alpha, beta)
@@ -570,14 +546,8 @@ def negamax(
 
     if depth == 0:
         q_score, q_completed = quiescence_search(
+            state,
             legal_moves,
-            state.player_bbs,
-            state.opposition_bbs,
-            state.is_whites_move,
-            state.en_passant_temp_idx,
-            state.en_passant_real_idx,
-            state.halfmove_clock,
-            state.castling_rights,
             alpha,
             beta,
             ply=ply,
