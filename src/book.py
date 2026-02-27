@@ -3,7 +3,7 @@ from pathlib import Path
 from zobrist import compute_polyglot_key
 
 ENTRY_SIZE = 16
-BOOK_PATH = Path(__file__).resolve().parent / "books" / "Cerebellum3Merge.bin"
+BOOK_PATH = Path(__file__).resolve().parent / "../books" / "Cerebellum3Merge.bin"
 
 promotion_map = {
     0: None,
