@@ -3,7 +3,7 @@ import time
 import inspect
 from dataclasses import dataclass
 
-from engine import evaluate_position
+from engine import evaluate_position, clear_tt
 from gamestate import BK, BQ, WK, WQ
 from moves import apply_move, find_legal_moves, find_pseudo_legal_moves, in_check
 
@@ -463,6 +463,7 @@ def uci_loop() -> None:
             continue
 
         if line == "ucinewgame":
+            clear_tt()
             position = initial_position()
             position_counts = {}
             continue

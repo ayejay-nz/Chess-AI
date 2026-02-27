@@ -210,6 +210,10 @@ MVV_LVV = [
 ]
 
 
+def clear_tt():
+    TT.clear()
+
+
 def pesto_evaluation(white_bbs, black_bbs):
     """
     Evaluate the current position using opening/middlegame and endgame piece-square tables,
