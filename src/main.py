@@ -147,7 +147,7 @@ def get_computer_move(white_bbs, black_bbs, engine_move_number=None):
     profiler = SearchProfiler(enabled=True) if PROFILE_FIND_LEGAL_MOVES else None
     start_time = time.perf_counter() if PROFILE_FIND_LEGAL_MOVES else 0.0
 
-    evaluation, move = evaluate_position(
+    evaluation, move, depth = evaluate_position(
         white_bbs,
         black_bbs,
         gamestate.is_whites_move,
@@ -158,12 +158,12 @@ def get_computer_move(white_bbs, black_bbs, engine_move_number=None):
         profiler=profiler,
     )
 
-    print(f"Evaluation: {evaluation}")
+    print(f"Evaluation: {evaluation}/{depth}")
 
     if PROFILE_FIND_LEGAL_MOVES and profiler is not None:
         profiler.print_report(
             time.perf_counter() - start_time,
-            depth="default",
+            depth=depth,
             move_number=engine_move_number,
         )
 

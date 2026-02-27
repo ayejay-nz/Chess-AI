@@ -636,6 +636,8 @@ def evaluate_position(
     best_move = ()
     best_eval = 0
 
+    max_depth = 0
+
     # Probe opening book for optimal move
     book_move = probe_opening_book(
         white_bbs, black_bbs, castling_rights, en_passant_temp_idx, is_whites_move
@@ -691,5 +693,7 @@ def evaluate_position(
         else:
             break
 
+        max_depth = d
+
     true_eval = best_eval if is_whites_move else -best_eval
-    return true_eval, best_move
+    return true_eval, best_move, max_depth

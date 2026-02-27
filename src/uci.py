@@ -350,7 +350,7 @@ def search_best_move(
     search_depth, time_limit_s = parse_go_args(go_command, position.is_whites_move)
     deadline = None if time_limit_s is None else time.monotonic() + time_limit_s
 
-    best_eval, best_move = evaluate_position(
+    best_eval, best_move, depth = evaluate_position(
         position.white_bbs,
         position.black_bbs,
         position.is_whites_move,
@@ -368,7 +368,7 @@ def search_best_move(
         best_eval = 0.0
 
     cp_score = int(best_eval if position.is_whites_move else -best_eval)
-    print(f"info depth {search_depth} score cp {cp_score} pv {move_to_uci(best_move)}", flush=True)
+    print(f"info depth {depth} score cp {cp_score} pv {move_to_uci(best_move)}", flush=True)
 
     return best_move
 
