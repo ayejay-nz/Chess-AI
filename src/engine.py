@@ -578,12 +578,30 @@ def negamax(
             _store_tt(best_score, best_move, LOWER)
             return best_score, best_move, True
 
+    # Search best move in TT
+    tt_move = entry.best_move if entry and entry.best_move in legal_moves else None
+    if tt_move and tt_move != pv_move:
+        score, completed = _search_child(tt_move)
+        if not completed:
+            return best_score, best_move, False
+
+        if score > best_score:
+            best_score = score
+            best_move = tt_move
+
+            if score > alpha:
+                alpha = score
+
+        if score >= beta:
+            _store_tt(best_score, best_move, LOWER)
+            return best_score, best_move, True
+
     # Apply MVV-LVA move ordering
     capture_moves, non_capture_moves = mvv_lva_ordering(
         legal_moves, state.player_bbs, state.opposition_bbs, state.en_passant_temp_idx
     )
     for move in capture_moves + non_capture_moves:
-        if move == pv_move:
+        if move == pv_move or move == tt_move:
             continue
 
         score, completed = _search_child(move)
