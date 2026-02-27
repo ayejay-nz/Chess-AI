@@ -5,8 +5,15 @@ from dataclasses import dataclass
 
 from book import probe_opening_book
 from game import draw_by_insufficient_material
-from moves import apply_move, find_legal_moves, is_square_attacked
 from profiler import active_profiler, bump_node
+from moves import (
+    SearchState,
+    apply_move,
+    find_legal_moves,
+    is_square_attacked,
+    make_move_inplace,
+    unmake_move_inplace,
+)
 from zobrist import ZobristState, compute_polyglot_key, update_key
 
 EXACT, LOWER, UPPER = 0, 1, 2
@@ -446,13 +453,7 @@ def quiescence_search(
 
 
 def negamax(
-    player_bbs,
-    opposition_bbs,
-    is_whites_move,
-    castling_rights,
-    en_passant_temp_idx,
-    en_passant_real_idx,
-    halfmove_clock,
+    state: SearchState,
     alpha,
     beta,
     zkey,
@@ -467,73 +468,28 @@ def negamax(
     bump_node()
 
     def _search_child(move):
-        (
-            new_player_bbs,
-            new_opposition_bbs,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-            new_halfmove_clock,
-            new_castling_rights,
-        ) = apply_move(
-            player_bbs,
-            opposition_bbs,
-            move,
-            en_passant_temp_idx,
-            en_passant_real_idx,
-            halfmove_clock,
-            castling_rights,
-            is_whites_move,
-        )
-
-        # Update zobrist key
         pre_state = ZobristState(
-            is_whites_move, castling_rights, en_passant_temp_idx, player_bbs[0]
+            state.is_whites_move,
+            state.castling_rights,
+            state.en_passant_temp_idx,
+            state.player_bbs[0],
         )
 
-        start_square, end_square, _ = move
-        start_idx = 1 << start_square
-        end_idx = 1 << end_square
-
-        # Get moved piece type (bitboard index)
-        moving_piece_idx = None
-        for idx, bb in enumerate(player_bbs):
-            if start_idx & bb:
-                moving_piece_idx = idx
-                break
-
-        # Get captured piece type (bitboard index)
-        captured_piece_idx = None
-        captured_square_idx = None
-        for idx, bb in enumerate(opposition_bbs):
-            if end_idx & bb:
-                captured_piece_idx = idx
-                captured_square_idx = end_square
-                break
-            # Is en passant capture
-            elif idx == 0 and end_square == en_passant_temp_idx and moving_piece_idx == 0:
-                captured_piece_idx = idx
-                captured_square_idx = en_passant_real_idx
-                break
+        undo = make_move_inplace(state, move)
 
         post_state = ZobristState(
-            not is_whites_move,
-            new_castling_rights,
-            new_en_passant_temp_idx,
-            new_opposition_bbs[0],
-            moving_piece_idx,
-            captured_piece_idx,
-            captured_square_idx,
+            state.is_whites_move,
+            state.castling_rights,
+            state.en_passant_temp_idx,
+            state.player_bbs[0],
+            undo.moved_piece_idx,
+            undo.captured_piece_idx,
+            undo.captured_piece_square,
         )
-        child_key = update_key(zkey, move, pre_state, post_state)
 
+        child_key = update_key(zkey, move, pre_state, post_state)
         child_score, _, completed = negamax(
-            new_opposition_bbs,
-            new_player_bbs,
-            not is_whites_move,
-            new_castling_rights,
-            new_en_passant_temp_idx,
-            new_en_passant_real_idx,
-            new_halfmove_clock,
+            state,
             -beta,
             -alpha,
             child_key,
@@ -542,6 +498,8 @@ def negamax(
             None,
             deadline,
         )
+
+        unmake_move_inplace(state, undo)
 
         if not completed:
             return 0, False
@@ -559,16 +517,16 @@ def negamax(
             if _is_mate_score(tt_score):
                 tt_score = tt_score + ply if tt_score > 0 else tt_score - ply
 
-            TT[zkey] = TTEntry(zkey, move, depth, tt_score, node_type, halfmove_clock)
+            TT[zkey] = TTEntry(zkey, move, depth, tt_score, node_type, state.halfmove_clock)
 
     if deadline is not None and time.monotonic() >= deadline:
         return 0, (), False
 
-    if draw_by_insufficient_material(player_bbs, opposition_bbs):
+    if draw_by_insufficient_material(state.player_bbs, state.opposition_bbs):
         return 0, (), True
 
     # Draw by 50-move rule
-    if halfmove_clock >= 100:
+    if state.halfmove_clock >= 100:
         return 0, (), True
 
     alpha_orig = alpha
@@ -592,18 +550,20 @@ def negamax(
             return score, entry.best_move, True
 
     legal_moves = find_legal_moves(
-        player_bbs,
-        opposition_bbs,
-        is_whites_move,
-        castling_rights,
-        en_passant_temp_idx,
-        en_passant_real_idx,
+        state.player_bbs,
+        state.opposition_bbs,
+        state.is_whites_move,
+        state.castling_rights,
+        state.en_passant_temp_idx,
+        state.en_passant_real_idx,
     )
 
     # No legal moves, so a mate has occurred
     if not legal_moves:
-        king_square = player_bbs[5].bit_length() - 1
-        if is_square_attacked(king_square, opposition_bbs, player_bbs, not is_whites_move):
+        king_square = state.player_bbs[5].bit_length() - 1
+        if is_square_attacked(
+            king_square, state.opposition_bbs, state.player_bbs, not state.is_whites_move
+        ):
             return -CHECKMATE_VALUE + ply, (), True
 
         return 0, (), True  # stalemate
@@ -611,13 +571,13 @@ def negamax(
     if depth == 0:
         q_score, q_completed = quiescence_search(
             legal_moves,
-            player_bbs,
-            opposition_bbs,
-            is_whites_move,
-            en_passant_temp_idx,
-            en_passant_real_idx,
-            halfmove_clock,
-            castling_rights,
+            state.player_bbs,
+            state.opposition_bbs,
+            state.is_whites_move,
+            state.en_passant_temp_idx,
+            state.en_passant_real_idx,
+            state.halfmove_clock,
+            state.castling_rights,
             alpha,
             beta,
             ply=ply,
@@ -650,7 +610,7 @@ def negamax(
 
     # Apply MVV-LVA move ordering
     capture_moves, non_capture_moves = mvv_lva_ordering(
-        legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+        legal_moves, state.player_bbs, state.opposition_bbs, state.en_passant_temp_idx
     )
     for move in capture_moves + non_capture_moves:
         if move == pv_move:
@@ -691,7 +651,7 @@ def evaluate_position(
     en_passant_real_idx,
     castling_rights,
     halfmove_clock,
-    depth=10,
+    depth=5,
     deadline=None,
     profiler=None,
 ):
@@ -727,6 +687,16 @@ def evaluate_position(
         white_bbs, black_bbs, castling_rights, en_passant_temp_idx, is_whites_move
     )
 
+    state = SearchState(
+        player_bbs,
+        opposition_bbs,
+        is_whites_move,
+        castling_rights,
+        en_passant_temp_idx,
+        en_passant_real_idx,
+        halfmove_clock,
+    )
+
     for d in range(1, depth + 1):
         if deadline and time.monotonic() >= deadline:
             break
@@ -734,13 +704,7 @@ def evaluate_position(
         profiler_context = active_profiler(profiler) if profiler is not None else nullcontext()
         with profiler_context:
             eval_d, move_d, completed_d = negamax(
-                player_bbs,
-                opposition_bbs,
-                is_whites_move,
-                castling_rights,
-                en_passant_temp_idx,
-                en_passant_real_idx,
-                halfmove_clock,
+                state,
                 alpha=-math.inf,
                 beta=math.inf,
                 zkey=zkey,
