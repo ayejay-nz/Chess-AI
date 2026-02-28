@@ -36,6 +36,10 @@ MAX_PLY = 256
 KILLER_MOVES = [[None, None] for _ in range(MAX_PLY)]
 
 
+MAX_HISTORY = 16384
+HISTORY = [[[0]*64 for _ in range(64)] for _ in range(2)] # side, from, to
+
+
 CHECKMATE_VALUE = 32000
 
 MG_VALUES = {
@@ -373,6 +377,57 @@ def killer_move_ordering(quiet_moves, ply):
     return ordered_quiets
 
 
+def decay_history():
+    """
+    Decay previously added history values
+    """
+
+    for s in range(2):
+        for frm in range(64):
+            row = HISTORY[s][frm]
+            for to in range(64):
+                row[to] //= 2
+
+
+def history_side_idx(is_whites_move):
+    """
+    Get history side index for history heuristic
+    """
+
+    return 0 if is_whites_move else 1
+
+
+def add_history(move, depth, side_idx):
+    frm, to, _ = move
+    bonus = depth * depth
+    weight = HISTORY[side_idx][frm][to] + bonus
+    HISTORY[side_idx][frm][to] = min(weight, MAX_HISTORY)
+
+
+def quiet_move_ordering(quiet_moves, ply, side_idx):
+    """
+    Order all quiet moves, killer moves first followed by history moves
+    """
+
+    if ply >= MAX_PLY:
+        return []
+
+    killer1, killer2 = KILLER_MOVES[ply]
+    ordered_quiets = []
+    
+    # Add killer moves
+    for km in (killer1, killer2):
+        if km is not None and km in quiet_moves and km not in ordered_quiets:
+            ordered_quiets.append(km)
+
+    # Sort the remaining history moves
+    rest = [m for m in quiet_moves if m not in ordered_quiets]
+    rest.sort(key=lambda m: HISTORY[side_idx][m[0]][m[1]], reverse=True)
+    ordered_quiets.extend(rest)
+
+    return ordered_quiets
+
+
 def quiescence_search(
     state: SearchState,
     legal_moves,
@@ -663,8 +718,9 @@ def negamax(
             _store_tt(best_score, best_move, LOWER)
             return best_score, best_move, True
 
-    # Set killer moves
-    ordered_quiet_moves = killer_move_ordering(non_capture_moves, ply)
+    # Order remaining quiet moves
+    side_idx = history_side_idx(state.is_whites_move)
+    ordered_quiet_moves = quiet_move_ordering(non_capture_moves, ply, side_idx)
     for move in ordered_quiet_moves:
         if move == pv_move or move == tt_move:
             continue
@@ -682,6 +738,7 @@ def negamax(
 
         if score >= beta:
             store_killer_move(ply, move)
+            add_history(move, depth, side_idx)
             _store_tt(best_score, best_move, LOWER)
             break        
 
@@ -722,6 +779,7 @@ def evaluate_position(
     best_move = ()
     best_eval = 0
     KILLER_MOVES = [[None, None] for _ in range(MAX_PLY)]
+    decay_history()
 
     max_depth = 0
 
