@@ -389,6 +389,18 @@ def decay_history():
                 row[to] //= 2
 
 
+def clear_history():
+    """
+    Clear all history heuristic weights
+    """
+
+    for s in range(2):
+        for frm in range(64):
+            row = HISTORY[s][frm]
+            for to in range(64):
+                row[to] = 0
+
+
 def history_side_idx(is_whites_move):
     """
     Get history side index for history heuristic
