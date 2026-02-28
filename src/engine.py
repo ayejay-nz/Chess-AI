@@ -32,6 +32,10 @@ class TTEntry:
 TT = {}
 
 
+MAX_PLY = 256
+KILLER_MOVES = [[None, None] for _ in range(MAX_PLY)]
+
+
 CHECKMATE_VALUE = 32000
 
 MG_VALUES = {
@@ -214,6 +218,21 @@ def clear_tt():
     TT.clear()
 
 
+def store_killer_move(ply, move):
+    """
+    Store a killer move at a specific ply, each ply having a maximum of two killer moves, both unique
+    """
+
+    if ply >= MAX_PLY:
+        return
+
+    # Insert killer move, ensuring it is unique at the ply level
+    if KILLER_MOVES[ply][0] != move:
+        KILLER_MOVES[ply][1] = KILLER_MOVES[ply][0]
+        KILLER_MOVES[ply][0] = move
+
+
+# @profiled()
 def pesto_evaluation(white_bbs, black_bbs):
     """
     Evaluate the current position using opening/middlegame and endgame piece-square tables,
@@ -331,6 +350,27 @@ def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_id
     capture_moves.sort(key=lambda move: _find_move_mvv_lva_score(move), reverse=True)
 
     return capture_moves, non_capture_moves
+
+
+def killer_move_ordering(quiet_moves, ply):
+    """
+    Orders a set of quiet moves, putting the killer moves first
+    """
+
+    if ply >= MAX_PLY:
+        return []
+
+    killer1, killer2 = KILLER_MOVES[ply]
+    ordered_quiets = []
+    
+    for km in (killer1, killer2):
+        if km is not None and km in quiet_moves and km not in ordered_quiets:
+            ordered_quiets.append(km)
+    for qm in quiet_moves:
+        if qm not in ordered_quiets:
+            ordered_quiets.append(qm)
+
+    return ordered_quiets
 
 
 def quiescence_search(
@@ -604,7 +644,7 @@ def negamax(
     capture_moves, non_capture_moves = mvv_lva_ordering(
         legal_moves, state.player_bbs, state.opposition_bbs, state.en_passant_temp_idx
     )
-    for move in capture_moves + non_capture_moves:
+    for move in capture_moves:
         if move == pv_move or move == tt_move:
             continue
 
@@ -620,7 +660,29 @@ def negamax(
                 alpha = score
 
         if score >= beta:
-            break
+            _store_tt(best_score, best_move, LOWER)
+            return best_score, best_move, True
+
+    # Set killer moves
+    ordered_quiet_moves = killer_move_ordering(non_capture_moves, ply)
+    for move in ordered_quiet_moves:
+        if move == pv_move or move == tt_move:
+            continue
+
+        score, completed = _search_child(move)
+        if not completed:
+            return best_score, best_move, False
+
+        if score > best_score:
+            best_score = score
+            best_move = move
+
+            if score > alpha:
+                alpha = score
+
+        if score >= beta:
+            store_killer_move(ply, move)
+            break        
 
     # Set values for transposition table
     if best_score <= alpha_orig:
@@ -651,12 +713,14 @@ def evaluate_position(
     Returns an evaluation of the the specified board position from the
     point of view of white, as well as the best move
     """
+    global KILLER_MOVES
 
     player_bbs = white_bbs if is_whites_move else black_bbs
     opposition_bbs = black_bbs if is_whites_move else white_bbs
 
     best_move = ()
     best_eval = 0
+    KILLER_MOVES = [[None, None] for _ in range(MAX_PLY)]
 
     max_depth = 0
 
@@ -674,7 +738,7 @@ def evaluate_position(
             en_passant_real_idx,
         )
         if book_move in legal_moves:
-            return 0, book_move
+            return 0, book_move, 0
 
     # Compute zobrist key for current position
     zkey = compute_polyglot_key(
