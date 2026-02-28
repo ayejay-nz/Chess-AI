@@ -682,6 +682,7 @@ def negamax(
 
         if score >= beta:
             store_killer_move(ply, move)
+            _store_tt(best_score, best_move, LOWER)
             break        
 
     # Set values for transposition table
