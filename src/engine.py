@@ -12,6 +12,7 @@ from moves import (
     find_legal_moves,
     is_square_attacked,
     make_move_inplace,
+    move_gives_check,
     unmake_move_inplace,
 )
 from zobrist import ZobristState, compute_polyglot_key, update_key
@@ -414,7 +415,9 @@ def order_moves(
     5. History moves
     6. Remaining
 
-    Returns an array tuples (move, is_quite_move boolean)
+    Returns two arrays:
+    - An array of tuples (move, is_quite_move boolean)
+    - An array of all capture moves
     """
 
     ordered_moves = []
@@ -436,7 +439,7 @@ def order_moves(
     ordered_quiets = quiet_move_ordering(non_capture_moves, ply, side_idx)
     ordered_moves.extend([(move, True) for move in ordered_quiets])
 
-    return ordered_moves
+    return ordered_moves, capture_moves
 
 
 def quiet_move_ordering(quiet_moves, ply, side_idx):
@@ -461,6 +464,40 @@ def quiet_move_ordering(quiet_moves, ply, side_idx):
     ordered_quiets.extend(rest)
 
     return ordered_quiets
+
+
+def can_do_lmr(state, move, depth, move_idx, in_check, capture_moves, ply):
+    """
+    Check if the provided conditions allow for LMR to be applied
+
+    Don't perform LMR on:
+    - Captures and promotions
+    - Moves while in check
+    - Moves which give check
+    - Killer moves
+    - Depth is too low (depth < 3)
+    - First few promising moves (from ordered moves)
+    """
+
+    # Killer move will always be idx < 4
+    if depth < 3 or move_idx < 4 or in_check:
+        return False
+
+    _, _, promotion = move
+    if promotion is not None or move in capture_moves:
+        return False
+
+    if move_gives_check(
+        move,
+        state.player_bbs,
+        state.opposition_bbs,
+        state.is_whites_move,
+        state.en_passant_temp_idx,
+        state.en_passant_real_idx,
+    ):
+        return False
+
+    return True
 
 
 def quiescence_search(
@@ -577,7 +614,7 @@ def negamax(
     """
     bump_node("negamax")
 
-    def _search_child(move):
+    def _search_child(move, child_alpha=-beta, child_beta=-alpha, child_depth=depth - 1):
         pre_state = ZobristState(
             state.is_whites_move,
             state.castling_rights,
@@ -600,11 +637,11 @@ def negamax(
         child_key = update_key(zkey, move, pre_state, post_state)
         child_score, _, completed = negamax(
             state,
-            -beta,
-            -alpha,
+            child_alpha,
+            child_beta,
             child_key,
             ply + 1,
-            depth - 1,
+            child_depth,
             None,
             deadline,
         )
@@ -669,16 +706,17 @@ def negamax(
     )
 
     # No legal moves, so a mate has occurred
+    king_square = state.player_bbs[5].bit_length() - 1
+    in_check = is_square_attacked(
+        king_square, state.opposition_bbs, state.player_bbs, not state.is_whites_move
+    )
     if not legal_moves:
-        king_square = state.player_bbs[5].bit_length() - 1
-        if is_square_attacked(
-            king_square, state.opposition_bbs, state.player_bbs, not state.is_whites_move
-        ):
+        if in_check:
             return -CHECKMATE_VALUE + ply, (), True
 
         return 0, (), True  # stalemate
 
-    if depth == 0:
+    if depth <= 0:
         q_score, q_completed = quiescence_search(
             state,
             legal_moves,
@@ -696,7 +734,7 @@ def negamax(
     best_score = -math.inf
 
     side_idx = history_side_idx(state.is_whites_move)
-    ordered_moves = order_moves(
+    ordered_moves, capture_moves = order_moves(
         legal_moves[:],
         state.player_bbs,
         state.opposition_bbs,
@@ -707,8 +745,33 @@ def negamax(
         ply,
     )
 
-    for move, is_quiet_move in ordered_moves:
-        score, completed = _search_child(move)
+    for idx, (move, is_quiet_move) in enumerate(ordered_moves):
+        # The PV move always gets searched at full depth
+        if idx == 0:
+            score, completed = _search_child(move)
+        else:
+            if can_do_lmr(state, move, depth, idx, in_check, capture_moves, ply):
+                # Calculate search depth reduction
+                reduction = 1
+                if idx > 12:
+                    reduction = 2  # Reduce more the further down the move list you get
+
+                # Reduced depth search using null window
+                score, completed = _search_child(move, -(alpha + 1), -alpha, depth - 1 - reduction)
+
+                # If reduced search beats alpha we may have missed something
+                do_full_depth_search = score > alpha
+            else:
+                do_full_depth_search = True
+
+            # Full depth search using null window
+            if do_full_depth_search:
+                score, completed = _search_child(move, -(alpha + 1), -alpha)
+
+            # Full depth search using full window
+            if alpha < score < beta:
+                score, completed = _search_child(move)
+
         if not completed:
             return best_score, best_move, False
 

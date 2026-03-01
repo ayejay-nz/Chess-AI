@@ -1117,6 +1117,66 @@ def is_square_attacked(target, attacker_bbs, defender_bbs, attacker_is_white):
 
 
 @profiled()
+def move_gives_check(
+    move, player_bbs, opposition_bbs, is_whites_move, en_passant_temp_idx, en_passant_real_idx
+):
+    """
+    See if a provided move gives a check to the opposition
+
+    This can be optimised
+    """
+
+    start_sq, end_sq, promo = move
+    start_bit, end_bit = 1 << start_sq, 1 << end_sq
+    king_square = opposition_bbs[5].bit_length() - 1
+
+    new_player_bbs = player_bbs[:]
+    new_opposition_bbs = opposition_bbs[:]
+
+    for idx, bb in enumerate(player_bbs):
+        if bb & start_bit:
+            moved_piece_idx = idx
+            break
+
+    # "Pick-up" moved piece
+    new_player_bbs[moved_piece_idx] ^= start_bit
+
+    # Place moved piece
+    if moved_piece_idx == 0:
+        if promo is not None:
+            promo_idx = piece_to_bitboard_index(promo)
+            new_player_bbs[promo_idx] ^= end_bit
+        else:
+            new_player_bbs[0] ^= end_bit
+
+            # Remove en passanted pawn
+            if end_sq == en_passant_temp_idx:
+                new_opposition_bbs[0] ^= 1 << en_passant_real_idx
+    elif moved_piece_idx == 5:
+        new_player_bbs[5] ^= end_bit
+        move_delta = end_sq - start_sq
+
+        # Handle castling
+        if move_delta == 2:  # kingside
+            new_player_bbs[3] ^= 1 << (start_sq + 3)
+            new_player_bbs[3] ^= 1 << (start_sq + 1)
+        elif move_delta == -2:  # queenside
+            new_player_bbs[3] ^= 1 << (start_sq - 4)
+            new_player_bbs[3] ^= 1 << (start_sq - 1)
+    else:
+        # Place all other moved pieces
+        new_player_bbs[moved_piece_idx] ^= end_bit
+
+    # Remove captured piece
+    for idx, bb in enumerate(new_opposition_bbs):
+        if bb & end_bit:
+            new_opposition_bbs[idx] ^= end_bit
+            break
+
+    # Check if move directly attacks king
+    return is_square_attacked(king_square, new_player_bbs, new_opposition_bbs, is_whites_move)
+
+
 def find_legal_moves(
     player_bbs,
     opposition_bbs,
