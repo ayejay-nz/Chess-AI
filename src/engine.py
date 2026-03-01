@@ -475,7 +475,7 @@ def quiescence_search(
     """
     Perform a quiescence search on the provided position
     """
-    bump_node()
+    bump_node("q")
 
     def _quiesce_child(moves, best_value, alpha, beta):
         for move in moves:
@@ -575,7 +575,7 @@ def negamax(
     """
     Negamax search algorithm for the provided position to the desired depth
     """
-    bump_node()
+    bump_node("negamax")
 
     def _search_child(move):
         pre_state = ZobristState(

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _ACTIVE_PROFILER = None
-ENABLE_PROFILING = False
+ENABLE_PROFILING = True
 
 # Number of previous profiler iterations to show in the report table.
 PROFILE_COMPARE_PREVIOUS = 3
@@ -43,9 +43,9 @@ def add_time(label, elapsed_s):
         _ACTIVE_PROFILER.add_time(label, elapsed_s)
 
 
-def bump_node():
+def bump_node(search_type=None):
     if ENABLE_PROFILING and _ACTIVE_PROFILER is not None:
-        _ACTIVE_PROFILER.bump_node()
+        _ACTIVE_PROFILER.bump_node(search_type)
 
 
 def profiled(label=None):
@@ -83,6 +83,8 @@ class SearchProfiler:
         self.calls = {}
         self.max_times = {}
         self.nodes = 0
+        self.negamax_nodes = 0
+        self.q_nodes = 0
 
     def add_time(self, label, elapsed_s):
         if not self.enabled:
@@ -100,15 +102,22 @@ class SearchProfiler:
         finally:
             self.add_time(label, time.perf_counter() - start)
 
-    def bump_node(self):
+    def bump_node(self, search_type=None):
         if ENABLE_PROFILING and self.enabled:
             self.nodes += 1
+            if search_type == "q":
+                self.q_nodes += 1
+            else:
+                # Default unknown/None labels to negamax so existing call sites stay useful.
+                self.negamax_nodes += 1
 
     def reset(self):
         self.times = {}
         self.calls = {}
         self.max_times = {}
         self.nodes = 0
+        self.negamax_nodes = 0
+        self.q_nodes = 0
 
     def get_stats(self):
         stats = []
@@ -167,6 +176,8 @@ class SearchProfiler:
 
     def _snapshot(self, total_time_s, depth, rows, move_number=None):
         nps = int(self.nodes / total_time_s) if total_time_s > 0 else 0
+        negamax_nps = int(self.negamax_nodes / total_time_s) if total_time_s > 0 else 0
+        q_nps = int(self.q_nodes / total_time_s) if total_time_s > 0 else 0
         functions = {}
 
         for row in rows:
@@ -182,6 +193,10 @@ class SearchProfiler:
             "depth": str(depth),
             "nodes": self.nodes,
             "nps": nps,
+            "negamax_nodes": self.negamax_nodes,
+            "negamax_nps": negamax_nps,
+            "q_nodes": self.q_nodes,
+            "q_nps": q_nps,
             "total_ms": total_time_s * 1000.0,
             "functions": functions,
         }
@@ -251,9 +266,16 @@ class SearchProfiler:
             return
 
         nps = int(self.nodes / total_time_s) if total_time_s > 0 else 0
+        negamax_nps = int(self.negamax_nodes / total_time_s) if total_time_s > 0 else 0
+        q_nps = int(self.q_nodes / total_time_s) if total_time_s > 0 else 0
         move_suffix = f" move={move_number}" if move_number is not None else ""
         print(
-            f"[PROFILE] total={total_time_s:.4f}s depth={depth} nodes={self.nodes} nps={nps}{move_suffix}",
+            (
+                f"[PROFILE] total={total_time_s:.4f}s depth={depth} "
+                f"nodes={self.nodes} nps={nps} "
+                f"negamax_nodes={self.negamax_nodes} negamax_nps={negamax_nps} "
+                f"q_nodes={self.q_nodes} q_nps={q_nps}{move_suffix}"
+            ),
             flush=True,
         )
         rows = self.get_stats()
