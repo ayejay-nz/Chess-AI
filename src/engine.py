@@ -395,6 +395,50 @@ def add_history(move, depth, side_idx):
     HISTORY[side_idx][frm][to] = min(weight, MAX_HISTORY)
 
 
+def order_moves(
+    legal_moves,
+    player_bbs,
+    opposition_bbs,
+    en_passant_temp_idx,
+    pv_move,
+    tt_entry,
+    side_idx,
+    ply,
+):
+    """
+    Orders all legal moves in the order they should be searched:
+    1. PV move
+    2. TT move (if distinct)
+    3. Capture moves, ordered by MVV-LVA
+    4. Killer moves
+    5. History moves
+    6. Remaining
+
+    Returns an array tuples (move, is_quite_move boolean)
+    """
+
+    ordered_moves = []
+
+    if pv_move in legal_moves:
+        ordered_moves.append((pv_move, False))  # set this as False for now
+        legal_moves.remove(pv_move)
+
+    tt_move = None if tt_entry is None else tt_entry.best_move
+    if tt_move is not None and tt_move in legal_moves:
+        ordered_moves.append((tt_move, False))  # set this as False for now
+        legal_moves.remove(tt_move)
+
+    capture_moves, non_capture_moves = mvv_lva_ordering(
+        legal_moves, player_bbs, opposition_bbs, en_passant_temp_idx
+    )
+    ordered_moves.extend([(move, False) for move in capture_moves])
+
+    ordered_quiets = quiet_move_ordering(non_capture_moves, ply, side_idx)
+    ordered_moves.extend([(move, True) for move in ordered_quiets])
+
+    return ordered_moves
+
+
 def quiet_move_ordering(quiet_moves, ply, side_idx):
     """
     Order all quiet moves, killer moves first followed by history moves
@@ -405,7 +449,7 @@ def quiet_move_ordering(quiet_moves, ply, side_idx):
 
     killer1, killer2 = KILLER_MOVES[ply]
     ordered_quiets = []
-    
+
     # Add killer moves
     for km in (killer1, killer2):
         if km is not None and km in quiet_moves and km not in ordered_quiets:
@@ -651,71 +695,19 @@ def negamax(
     best_move = ()
     best_score = -math.inf
 
-    # Search previous best move first
-    if pv_move and pv_move in legal_moves:
-        score, completed = _search_child(pv_move)
-        if not completed:
-            return best_score, best_move, False
-
-        if score > best_score:
-            best_score = score
-            best_move = pv_move
-
-            if score > alpha:
-                alpha = score
-
-        if score >= beta:
-            _store_tt(best_score, best_move, LOWER)
-            return best_score, best_move, True
-
-    # Search best move in TT
-    tt_move = entry.best_move if entry and entry.best_move in legal_moves else None
-    if tt_move and tt_move != pv_move:
-        score, completed = _search_child(tt_move)
-        if not completed:
-            return best_score, best_move, False
-
-        if score > best_score:
-            best_score = score
-            best_move = tt_move
-
-            if score > alpha:
-                alpha = score
-
-        if score >= beta:
-            _store_tt(best_score, best_move, LOWER)
-            return best_score, best_move, True
-
-    # Apply MVV-LVA move ordering
-    capture_moves, non_capture_moves = mvv_lva_ordering(
-        legal_moves, state.player_bbs, state.opposition_bbs, state.en_passant_temp_idx
-    )
-    for move in capture_moves:
-        if move == pv_move or move == tt_move:
-            continue
-
-        score, completed = _search_child(move)
-        if not completed:
-            return best_score, best_move, False
-
-        if score > best_score:
-            best_score = score
-            best_move = move
-
-            if score > alpha:
-                alpha = score
-
-        if score >= beta:
-            _store_tt(best_score, best_move, LOWER)
-            return best_score, best_move, True
-
-    # Order remaining quiet moves
     side_idx = history_side_idx(state.is_whites_move)
-    ordered_quiet_moves = quiet_move_ordering(non_capture_moves, ply, side_idx)
-    for move in ordered_quiet_moves:
-        if move == pv_move or move == tt_move:
-            continue
+    ordered_moves = order_moves(
+        legal_moves[:],
+        state.player_bbs,
+        state.opposition_bbs,
+        state.en_passant_temp_idx,
+        pv_move,
+        entry,
+        side_idx,
+        ply,
+    )
 
+    for move, is_quiet_move in ordered_moves:
         score, completed = _search_child(move)
         if not completed:
             return best_score, best_move, False
@@ -728,10 +720,11 @@ def negamax(
                 alpha = score
 
         if score >= beta:
-            store_killer_move(ply, move)
-            add_history(move, depth, side_idx)
+            if is_quiet_move:
+                store_killer_move(ply, move)
+                add_history(move, depth, side_idx)
             _store_tt(best_score, best_move, LOWER)
-            break        
+            return best_score, best_move, True
 
     # Set values for transposition table
     if best_score <= alpha_orig:
