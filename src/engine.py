@@ -466,7 +466,7 @@ def quiet_move_ordering(quiet_moves, ply, side_idx):
     return ordered_quiets
 
 
-def can_do_lmr(state, move, depth, move_idx, in_check, capture_moves, ply):
+def can_do_lmr(state, move, depth, in_check, capture_moves, ply):
     """
     Check if the provided conditions allow for LMR to be applied
 
@@ -476,15 +476,16 @@ def can_do_lmr(state, move, depth, move_idx, in_check, capture_moves, ply):
     - Moves which give check
     - Killer moves
     - Depth is too low (depth < 3)
-    - First few promising moves (from ordered moves)
     """
 
-    # Killer move will always be idx < 4
-    if depth < 3 or move_idx < 4 or in_check:
+    if depth < 3 or in_check:
         return False
 
     _, _, promotion = move
     if promotion is not None or move in capture_moves:
+        return False
+
+    if move in KILLER_MOVES[ply]:
         return False
 
     if move_gives_check(
@@ -750,7 +751,7 @@ def negamax(
         if idx == 0:
             score, completed = _search_child(move, -beta, -alpha, depth - 1)
         else:
-            if can_do_lmr(state, move, depth, idx, in_check, capture_moves, ply):
+            if can_do_lmr(state, move, depth, in_check, capture_moves, ply):
                 # Calculate search depth reduction
                 reduction = 1
                 if idx > 12:
