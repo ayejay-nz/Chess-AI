@@ -2,3 +2,4 @@ __pycache__
 .venv
 profile_history.json
 profile_history.json.tmp
+output
