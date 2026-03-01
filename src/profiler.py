@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _ACTIVE_PROFILER = None
+_ACTIVE_PROFILE_DEPTH = {}
 ENABLE_PROFILING = True
 
 # Number of previous profiler iterations to show in the report table.
@@ -43,12 +44,17 @@ def add_time(label, elapsed_s):
         _ACTIVE_PROFILER.add_time(label, elapsed_s)
 
 
+def bump_call(label):
+    if ENABLE_PROFILING and _ACTIVE_PROFILER is not None:
+        _ACTIVE_PROFILER.bump_call(label)
+
+
 def bump_node(search_type=None):
     if ENABLE_PROFILING and _ACTIVE_PROFILER is not None:
         _ACTIVE_PROFILER.bump_node(search_type)
 
 
-def profiled(label=None):
+def profiled(label=None, root_only=False):
     """
     Decorator that records call count and runtime for a function when an
     active profiler is installed via `active_profiler`.
@@ -65,7 +71,29 @@ def profiled(label=None):
             profiler = _ACTIVE_PROFILER
             if profiler is None:
                 return fn(*args, **kwargs)
-            return profiler.timed_call(metric_label, fn, *args, **kwargs)
+
+            profiler.bump_call(metric_label)
+
+            if not root_only:
+                return profiler.timed_call(metric_label, fn, *args, **kwargs)
+
+            current_depth = _ACTIVE_PROFILE_DEPTH.get(metric_label, 0)
+            _ACTIVE_PROFILE_DEPTH[metric_label] = current_depth + 1
+            try:
+                # Only time the outermost call for this label.
+                if current_depth > 0:
+                    return fn(*args, **kwargs)
+                start = time.perf_counter()
+                try:
+                    return fn(*args, **kwargs)
+                finally:
+                    profiler.add_time(metric_label, time.perf_counter() - start)
+            finally:
+                next_depth = _ACTIVE_PROFILE_DEPTH.get(metric_label, 1) - 1
+                if next_depth <= 0:
+                    _ACTIVE_PROFILE_DEPTH.pop(metric_label, None)
+                else:
+                    _ACTIVE_PROFILE_DEPTH[metric_label] = next_depth
 
         return wrapped
 
@@ -81,6 +109,7 @@ class SearchProfiler:
         self.enabled = enabled
         self.times = {}
         self.calls = {}
+        self.calls_total = {}
         self.max_times = {}
         self.nodes = 0
         self.negamax_nodes = 0
@@ -102,6 +131,11 @@ class SearchProfiler:
         finally:
             self.add_time(label, time.perf_counter() - start)
 
+    def bump_call(self, label):
+        if not ENABLE_PROFILING or not self.enabled:
+            return
+        self.calls_total[label] = self.calls_total.get(label, 0) + 1
+
     def bump_node(self, search_type=None):
         if ENABLE_PROFILING and self.enabled:
             self.nodes += 1
@@ -114,6 +148,7 @@ class SearchProfiler:
     def reset(self):
         self.times = {}
         self.calls = {}
+        self.calls_total = {}
         self.max_times = {}
         self.nodes = 0
         self.negamax_nodes = 0
@@ -121,13 +156,18 @@ class SearchProfiler:
 
     def get_stats(self):
         stats = []
-        for label, total in self.times.items():
-            calls = self.calls.get(label, 0)
-            avg = (total / calls) if calls else 0.0
+        labels = set(self.calls_total) | set(self.times)
+
+        for label in labels:
+            total = self.times.get(label, 0.0)
+            calls = self.calls_total.get(label, 0)
+            timed_calls = self.calls.get(label, 0)
+            avg = (total / timed_calls) if timed_calls else 0.0
             stats.append(
                 {
                     "label": label,
                     "calls": calls,
+                    "timed_calls": timed_calls,
                     "total_s": total,
                     "avg_s": avg,
                     "max_s": self.max_times.get(label, 0.0),
