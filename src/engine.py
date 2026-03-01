@@ -614,7 +614,7 @@ def negamax(
     """
     bump_node("negamax")
 
-    def _search_child(move, child_alpha=-beta, child_beta=-alpha, child_depth=depth - 1):
+    def _search_child(move, child_alpha, child_beta, child_depth):
         pre_state = ZobristState(
             state.is_whites_move,
             state.castling_rights,
@@ -748,7 +748,7 @@ def negamax(
     for idx, (move, is_quiet_move) in enumerate(ordered_moves):
         # The PV move always gets searched at full depth
         if idx == 0:
-            score, completed = _search_child(move)
+            score, completed = _search_child(move, -beta, -alpha, depth - 1)
         else:
             if can_do_lmr(state, move, depth, idx, in_check, capture_moves, ply):
                 # Calculate search depth reduction
@@ -766,11 +766,11 @@ def negamax(
 
             # Full depth search using null window
             if do_full_depth_search:
-                score, completed = _search_child(move, -(alpha + 1), -alpha)
+                score, completed = _search_child(move, -(alpha + 1), -alpha, depth - 1)
 
             # Full depth search using full window
             if alpha < score < beta:
-                score, completed = _search_child(move)
+                score, completed = _search_child(move, -beta, -alpha, depth - 1)
 
         if not completed:
             return best_score, best_move, False
