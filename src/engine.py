@@ -356,27 +356,6 @@ def mvv_lva_ordering(legal_moves, player_bbs, opposition_bbs, en_passant_temp_id
     return capture_moves, non_capture_moves
 
 
-def killer_move_ordering(quiet_moves, ply):
-    """
-    Orders a set of quiet moves, putting the killer moves first
-    """
-
-    if ply >= MAX_PLY:
-        return []
-
-    killer1, killer2 = KILLER_MOVES[ply]
-    ordered_quiets = []
-    
-    for km in (killer1, killer2):
-        if km is not None and km in quiet_moves and km not in ordered_quiets:
-            ordered_quiets.append(km)
-    for qm in quiet_moves:
-        if qm not in ordered_quiets:
-            ordered_quiets.append(qm)
-
-    return ordered_quiets
-
-
 def decay_history():
     """
     Decay previously added history values
