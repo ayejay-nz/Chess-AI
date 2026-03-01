@@ -817,12 +817,12 @@ def evaluate_position(
         if not completed_d:
             break
 
+        max_depth = d
+
         if move_d:
             best_eval, best_move = eval_d, move_d
         else:
             break
-
-        max_depth = d
 
     true_eval = best_eval if is_whites_move else -best_eval
     return true_eval, best_move, max_depth
