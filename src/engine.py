@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from book import probe_opening_book
 from evaluation import static_eval
 from game import draw_by_insufficient_material
-from profiler import active_profiler, bump_node
+from profiler import active_profiler, bump_node, profiled
 from moves import (
     SearchState,
     apply_move,
@@ -248,6 +248,7 @@ def quiet_move_ordering(quiet_moves, ply, side_idx):
     return ordered_quiets
 
 
+# @profiled()
 def can_do_lmr(state, move, depth, in_check, capture_moves, ply):
     """
     Check if the provided conditions allow for LMR to be applied
@@ -283,6 +284,7 @@ def can_do_lmr(state, move, depth, in_check, capture_moves, ply):
     return True
 
 
+# @profiled(root_only=True)
 def quiescence_search(
     state: SearchState,
     legal_moves,
@@ -382,6 +384,7 @@ def quiescence_search(
     return _quiesce_child(capture_moves, best_value, alpha, beta)
 
 
+# @profiled(root_only=True)
 def negamax(
     state: SearchState,
     alpha,
@@ -418,6 +421,7 @@ def negamax(
         )
 
         child_key = update_key(zkey, move, pre_state, post_state)
+
         child_score, _, completed = negamax(
             state,
             child_alpha,

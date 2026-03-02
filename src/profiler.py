@@ -6,7 +6,7 @@ from pathlib import Path
 
 _ACTIVE_PROFILER = None
 _ACTIVE_PROFILE_DEPTH = {}
-ENABLE_PROFILING = True
+ENABLE_PROFILING = False
 
 # Number of previous profiler iterations to show in the report table.
 PROFILE_COMPARE_PREVIOUS = 3
