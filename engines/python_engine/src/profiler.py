@@ -12,7 +12,7 @@ ENABLE_PROFILING = False
 PROFILE_COMPARE_PREVIOUS = 3
 
 # JSON file used to persist profiler history across engine runs.
-PROFILE_HISTORY_PATH = "../profile_history.json"
+PROFILE_HISTORY_PATH = "../../profile_history.json"
 
 # Maximum number of profiler iterations to retain in history.
 PROFILE_HISTORY_MAX_ENTRIES = 1000
