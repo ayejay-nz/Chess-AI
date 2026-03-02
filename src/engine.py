@@ -53,7 +53,7 @@ MG_VALUES = {
 EG_VALUES = {
     0: 94,  # pawn
     1: 281,  # knight
-    2: 197,  # bishop
+    2: 297,  # bishop
     3: 512,  # rook
     4: 936,  # queen
 }
